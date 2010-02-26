@@ -18,11 +18,11 @@ h2. Syntax ideas
 
 h3. Data types
 
-h2. Strings
+Strings
 
-"Hello world" and 'Hello world' are same.
+<b>"Hello world"</b> and <b>'Hello world'</b> are same.
 
-h2. Integer
+Integer
 
 1
 
@@ -34,11 +34,11 @@ h2. Atoms
 
 Erlang atoms, like Ruby symbols.
 
-:keyword or :'this is an atom' are valid atoms.
+<b>:keyword</b> or <b>:'this is an atom'</b> are valid atoms.
 
 h3. Special atoms
 
-"true", "false" and "undefined" are considered special atoms.
+<b>true</b>, <b>false</b> and <b>undefined</b> are considered special atoms.
 
 <pre>
 >>> true == :true
@@ -53,7 +53,7 @@ Just a syntatic sugar here.
 
 h3. Operators
 
-h4. Comparison operators
+Comparison operators
 
 <pre>
 >>> true and true
@@ -70,7 +70,7 @@ true
 false
 </pre>
 
-h4. Logical operators
+Logical operators
 
 <pre>
 >>> 1 & 1 # and
@@ -102,7 +102,7 @@ def fib (n) when n > 0
 end
 </pre>
 
-h3. Build-in functions per data type (not OOP)
+h3. Build-in functions for each data type (not OOP)
 
 <pre>
 >>> 1.to_s
@@ -113,6 +113,9 @@ h3. Build-in functions per data type (not OOP)
 "hello world"
 >>> [1, 2, 3, 4].filter(fun x: x.even?)
 [2, 4]
+>>> foo = undefined
+>>> foo.to_s
+"undefined"
 </pre>
 
 h3. Anonymous functions
