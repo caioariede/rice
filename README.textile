@@ -20,19 +20,45 @@ h3. Strings
 
 <b>"Hello world"</b> and <b>'Hello world'</b> are same.
 
+<pre>
+>>> "Hello world" === 'Hello world'
+true
+>>> "foo".str?
+true
+</pre>
+
 h3. Integer
 
-1
+<pre>
+>>> 1.int?
+true
+>>> 1.float?
+false
+</pre>
 
 h3. Float
 
-1.0
+<pre>
+>>> 1.0.float?
+true
+>>> (2 * 0.5).int?
+false
+</pre>
 
 h3. Atoms
 
 Erlang atoms, like Ruby symbols.
 
 <b>:keyword</b> or <b>:'this is an atom'</b> are valid atoms.
+
+<pre>
+>>> :keyword.atom?
+true
+>>> :'this is an atom'.atom?
+true
+>>> 1.atom?
+false
+</pre>
 
 h2. Special atoms
 
@@ -168,10 +194,12 @@ def debug fn
         puts "called function %s" % fn.name
         fn.call x, y
     end
+end
 
 @debug
 def sum x, y
     x + y
+end
 </pre>
 
 h2. List comprehension
@@ -203,10 +231,14 @@ All functions with name terminating in "?" are evaluated to <b>true</b> or <b>fa
 <pre>
 >>> def foo?
         "bar"
+    end
+
 >>> foo?
 true
 >>> def bar?
         0
+    end
+
 >>> bar?
 false
 </pre>
