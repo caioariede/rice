@@ -1,8 +1,63 @@
 h1. Rice Programming Language
 
-Currently, Rice is under heavy development stage and still not usable.
+Currently, Rice is under heavy development and brainstorm stage. Not usable yet.
+
+The objective is to maintain total interoperability between Rice and Erlang, and do not miss the functional paradigm.
+
+* All variables are imm
 
 h2. Syntax ideas
+
+h3. Special atoms
+
+"true", "false" and "undefined" are considered special atoms.
+
+<pre>
+>>> true == :true
+true
+>>> false == :false
+true
+>>> undefined == :undefined
+true
+</pre>
+
+Just a syntatic sugar here.
+
+h3. Operators
+
+h2. Comparison operators
+
+<pre>
+>>> true and true
+true
+>>> true or false
+true
+>>> not true
+false
+>>> not (not true)
+true
+>>> 1 == 1.0
+true
+>>> 1 === 1.0
+false
+</pre>
+
+h2. Logical operators
+
+<pre>
+>>> 1 & 1 # and
+1
+>>> 0 | 0 # or
+0
+>>> 1 ^ 1 # xor
+0
+>>> ~2 # negation
+-3
+>>> 6 >> 1 # shift right
+4
+>>> 6 << 4 # shift left
+96
+</pre>
 
 h3. Function definition
 
@@ -17,6 +72,19 @@ def fib (n) when n > 0
     fib(n - 1) + fib(n - 2)
 
 end
+</pre>
+
+h3. Build-in functions per data type (not OOP)
+
+<pre>
+>>> 1.to_s
+"1"
+>>> 1.puts
+1
+>>> "hello world".puts
+"hello world"
+>>> [1, 2, 3, 4].filter(fun x: x.even?)
+[2, 4]
 </pre>
 
 h3. Anonymous functions
@@ -34,15 +102,31 @@ h3. Anonymous functions with multiple clauses
 
 <pre>
 >>> test = fun 1
-        True
+        true
     fun 0
-        False
+        false
     end
 
 >>> test(1)
-True
+true
 >>> test(0)
-False
+false
+</pre>
+
+h3. If-then-else
+
+<pre>
+x = 1
+#x = "foobar"
+#x = 1.0
+
+if x.int?
+    puts "integer"
+elif x.str?
+    puts "string"
+else
+    puts "anything else"
+end
 </pre>
 
 h3. Decorators
@@ -83,15 +167,15 @@ h3. Partial application
 
 h3. Predicate functions
 
-Always return True or False
+Always return "true" or "false"
 
 <pre>
 >>> def foo?
         "bar"
 >>> foo?
-True
+true
 >>> def bar?
         0
 >>> bar?
-False
+false
 </pre>
