@@ -1,0 +1,30 @@
+module 'bool'
+
+def test
+
+    # True, False are special atoms
+    # Just a small syntax sugar
+
+    puts True == true # False
+    puts True == :true # True
+    puts True.atom? # True
+
+    if True == :true
+        puts "foo"
+    else
+        puts "bar"
+
+__END__
+
+-module('bool').
+
+test()->
+    rice:call('puts', [true == True]),
+    rice:call('puts', [true == 'true']),
+    rice:call('puts', [rice:call({true, 'atom?'})]),
+    if
+        true == 'true' ->
+            rice:call('puts', [{string, "foo"}]);
+        _
+            rice:call('puts', [{string, "bar"}])
+    end.

@@ -1,0 +1,53 @@
+root <- module clause+ (spaces / newline)?;
+
+module <- "module" spaces identifier;
+clause <- indent "def" spaces identifier (spaces clause_args comma clause_kwargs / spaces (clause_args / clause_kwargs))? (block / block_inline);
+
+clause_args <- clause_args_arg (comma clause_args_arg)*;
+clause_args_arg <- variable / atom / string / integer;
+clause_kwargs <- "*" identifier "(" spaces? clause_kwargs_key (comma clause_kwargs_key)* spaces? ")";
+clause_kwargs_key <- atom spaces? "=>" spaces? value / atom;
+
+block <- indent statements;
+block_inline <- ":" spaces? statements_inline;
+
+do <- do_clause+ "end";
+
+do_clause <- "do" (spaces clause_args)? block;
+%do_clause_inline <- "do" (spaces clause_args)? spaces? block_inline;
+
+statements <- statement statements_samedent?;
+statements_samedent <- samedent statements+;
+statements_inline <- statement (comma statement)*;
+
+statement <- do / call / slice / variable / atom / string / integer;
+
+slice <- (variable / string) "[" atom "]";
+
+call <- call_value (spaces call_args comma call_kwargs / spaces (call_args / call_kwargs))?;
+call_value <- value ("." identifier)+ / identifier;
+call_args <- call_args_arg (comma call_args_arg)*;
+call_args_arg <- value (!(spaces "=>") "");
+call_kwargs <- call_kwargs_arg (comma call_kwargs_arg)*;
+call_kwargs_arg <- value spaces? "=>" spaces? value;
+
+% identation
+newline <- [\r\n]+;
+indent <- newline spaces?;
+samedent <- newline spaces;
+%outdent <- newline / !.; % !. means eof
+
+value <- primitive / do / variable;
+variable <- identifier;
+
+comma <- spaces? "," spaces?;
+
+% terminals
+primitive <- atom / string / integer;
+string <- ('"' string:(!'"' ('\\"' / .))* '"') / ("'" string:(!"'" ("\\'" / .))* "'");
+atom <- ":" atom:[a-zA-Z0-9@_]+ / ":" "'" atom:(!"'" ("\\'" / .))+ "'";
+integer <- "-"? [0-9]+;
+spaces <- [\s\t]+;
+
+% identifier
+identifier <- [a-zA-Z_] [a-zA-Z0-9_-]*;

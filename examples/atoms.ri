@@ -1,0 +1,21 @@
+module 'atoms'
+
+def test
+    :an_atom == "an_atom" # False
+    :an_atom == :'an_atom' # True
+    :an_atom == :"an_atom" # True
+    x = :'foo bar'
+    x.atom? # True
+    x.num? # False
+
+__END__
+
+-module('atoms').
+
+test()->
+    'an_atom' == {string, "an_atom"},
+    'an_atom' == 'an_atom',
+    'an_atom' == 'an_atom',
+    X = 'foo bar',
+    rice:call({X, 'atom?'}),
+    rice:call({X, 'num?'}).

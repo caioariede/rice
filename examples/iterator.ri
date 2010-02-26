@@ -1,0 +1,15 @@
+module iterator
+
+def test
+    # Will print 4 8
+    [2, 4, 6, 8].each 2, do num:
+        puts num * 2
+
+__END__
+
+-module('iterator').
+
+test()->
+    rice:call({[2, 4, 6, 8], 'each'}, [2, fun(Num)->
+        rice:call('puts', [Num * 2])
+    end]).

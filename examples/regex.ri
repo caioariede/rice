@@ -1,0 +1,42 @@
+module 'regex'
+
+def test
+    "foobar".replace /[ao]/, with => "x"
+    puts /^foo/.test "foobar"
+
+def trim string
+    string.strip /^\s|\s$/
+
+def strip string, regex
+    string.replace regex, with => ""
+
+def replace string, (:regex, regex, modifiers), *kwargs
+    (:ok, compiled) = re.compile regex, modifiers.map do m:
+        case m
+            :i: :caseless
+        else
+            throw 'Invalid modifier %s' % m
+    re.replace string, regex, kwargs['with']
+
+__END__
+
+-module('regex').
+
+test()->
+    rice:call({{string, "foobar"}, 'replace'}, [{regex, "[ao]"}], [{'with', {string, "x"}}]).
+
+trim(String) ->
+    rice:call({String, 'strip'}, [{regex, "^\s|\s$"}]).
+
+strip(String, Regex)->
+    rice:call({String, 'replace'}, [Regex], [{'with', {string, ""}}]).
+
+replace(String, {regex, Regex, Modifiers}, Kwargs)->
+    {ok, Compiled} = re:compile(Regex, rice:call({Modifiers, 'map'}, [fun(M)->
+        case M of
+            'i' -> 'caseless';
+            _ ->
+                throw(rice:call({{string, "Invalid modifier"}, '%'}, [M]))
+        end
+    end])),
+    re:replace(String, Regex, proplists:get_value('with', Kwargs)).
