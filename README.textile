@@ -14,29 +14,27 @@ Three words in my mind
 * Elegant
 * Clean
 
-h2. Syntax ideas
+h2. Data types
 
-h3. Data types
-
-Strings
+h3. Strings
 
 <b>"Hello world"</b> and <b>'Hello world'</b> are same.
 
-Integer
+h3. Integer
 
 1
 
-h2. Float
+h3. Float
 
 1.0
 
-h2. Atoms
+h3. Atoms
 
 Erlang atoms, like Ruby symbols.
 
 <b>:keyword</b> or <b>:'this is an atom'</b> are valid atoms.
 
-h3. Special atoms
+h2. Special atoms
 
 <b>true</b>, <b>false</b> and <b>undefined</b> are considered special atoms.
 
@@ -51,9 +49,9 @@ true
 
 Just a syntatic sugar here.
 
-h3. Operators
+h2. Operators
 
-Comparison operators
+h3. Comparison operators
 
 <pre>
 >>> true and true
@@ -70,7 +68,7 @@ true
 false
 </pre>
 
-Logical operators
+h3. Logical operators
 
 <pre>
 >>> 1 & 1 # and
@@ -87,7 +85,7 @@ Logical operators
 96
 </pre>
 
-h3. Function definition
+h2. Function definition
 
 <pre>
 def fib (0)
@@ -102,7 +100,7 @@ def fib (n) when n > 0
 end
 </pre>
 
-h3. Build-in functions for each data type (not OOP)
+h2. Build-in functions for each data type (not OOP)
 
 <pre>
 >>> 1.to_s
@@ -113,12 +111,14 @@ h3. Build-in functions for each data type (not OOP)
 "hello world"
 >>> [1, 2, 3, 4].filter(fun x: x.even?)
 [2, 4]
+>>> [1, 2, 3, 4].filter(fun x: x.even? and x < 4)
+[2]
 >>> foo = undefined
 >>> foo.to_s
 "undefined"
 </pre>
 
-h3. Anonymous functions
+h2. Anonymous functions
 
 <pre>
 >>> my_function = fun x
@@ -129,7 +129,7 @@ h3. Anonymous functions
 3
 </pre>
 
-h3. Anonymous functions with multiple clauses
+h2. Anonymous functions with multiple clauses
 
 <pre>
 >>> test = fun 1
@@ -144,7 +144,7 @@ true
 false
 </pre>
 
-h3. If-then-else
+h2. If-then-else
 
 <pre>
 x = 1
@@ -160,7 +160,7 @@ else
 end
 </pre>
 
-h3. Decorators
+h2. Decorators
 
 <pre>
 def debug fn
@@ -174,7 +174,7 @@ def sum x, y
     x + y
 </pre>
 
-h3. List comprehension
+h2. List comprehension
 
 Example of permutation using two generators
 
@@ -183,7 +183,7 @@ Example of permutation using two generators
 ["aa", "ab", "ba", "bb"]
 </pre>
 
-h3. Partial application
+h2. Partial application
 
 <pre>
 >>> double = 2 * ?
@@ -196,9 +196,9 @@ h3. Partial application
 [20, 40, 60]
 </pre>
 
-h3. Predicate functions
+h2. Predicate functions
 
-Always return "true" or "false"
+All functions with name terminating in "?" are evaluated to <b>true</b> or <b>false</b>
 
 <pre>
 >>> def foo?
