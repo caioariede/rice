@@ -1,1 +1,12 @@
 h1. Rice Programming Language
+
+Currently, Rice is under heavy development stage and still not usable.
+
+h2. Syntax ideas
+
+h3. List comprehension
+
+Example of permutation
+
+    %> [x + y for x in "ab", y in "ab"]
+    ["aa", "ab", "ba", "bb"]
