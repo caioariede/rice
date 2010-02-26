@@ -4,9 +4,26 @@ Currently, Rice is under heavy development stage and still not usable.
 
 h2. Syntax ideas
 
+h3. Function definition
+
+<pre><code>
+def fib (0)
+    0
+
+def fib (1)
+    1
+
+def fib (n) when n > 0
+    fib(n - 1) + fib(n - 2)
+
+end
+</code></pre>
+
 h3. List comprehension
 
-Example of permutation
+Example of permutation using two generators
 
-    %> [x + y for x in "ab", y in "ab"]
-    ["aa", "ab", "ba", "bb"]
+<pre><code>
+>>> [x + y for x in "ab", y in "ab"]
+["aa", "ab", "ba", "bb"]
+</code></pre>
