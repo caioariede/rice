@@ -6,7 +6,7 @@ h2. Syntax ideas
 
 h3. Function definition
 
-<pre><code>
+<pre>
 def fib (0)
     0
 
@@ -17,13 +17,81 @@ def fib (n) when n > 0
     fib(n - 1) + fib(n - 2)
 
 end
-</code></pre>
+</pre>
+
+h3. Anonymous functions
+
+<pre>
+>>> my_function = fun x
+        x + 1
+    end
+
+>>> my_function(2)
+3
+</pre>
+
+h3. Anonymous functions with multiple clauses
+
+<pre>
+>>> test = fun 1
+        True
+    fun 0
+        False
+    end
+
+>>> test(1)
+True
+>>> test(0)
+False
+</pre>
+
+h3. Decorators
+
+<pre>
+def debug fn
+    fun x, y
+        puts "called function %s" % fn.name
+        fn.call x, y
+    end
+
+@debug
+def sum x, y
+    x + y
+</pre>
 
 h3. List comprehension
 
 Example of permutation using two generators
 
-<pre><code>
+<pre>
 >>> [x + y for x in "ab", y in "ab"]
 ["aa", "ab", "ba", "bb"]
-</code></pre>
+</pre>
+
+h3. Partial application
+
+<pre>
+>>> double = 2 * ?
+>>> double(2)
+3
+>>> cube = ?1 * ?1 * ?1
+>>> cube(3)
+27
+>>> [10, 20, 30].map(2 * ?)
+[20, 40, 60]
+</pre>
+
+h3. Predicate functions
+
+Always return True or False
+
+<pre>
+>>> def foo?
+        "bar"
+>>> foo?
+True
+>>> def bar?
+        0
+>>> bar?
+False
+</pre>
