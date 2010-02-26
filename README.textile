@@ -4,9 +4,37 @@ Currently, Rice is under heavy development and brainstorm stage. Not usable yet.
 
 The objective is to maintain total interoperability between Rice and Erlang, and do not miss the functional paradigm.
 
-* All variables are imm
+* Variables are immutable (single-assignment)
+* No imperative loops (for, while, etc)
+* No global scope
+
+Three words in my mind
+
+* Powerful
+* Elegant
+* Clean
 
 h2. Syntax ideas
+
+h3. Data types
+
+h2. Strings
+
+"Hello world" and 'Hello world' are same.
+
+h2. Integer
+
+1
+
+h2. Float
+
+1.0
+
+h2. Atoms
+
+Erlang atoms, like Ruby symbols.
+
+:keyword or :'this is an atom' are valid atoms.
 
 h3. Special atoms
 
@@ -25,7 +53,7 @@ Just a syntatic sugar here.
 
 h3. Operators
 
-h2. Comparison operators
+h4. Comparison operators
 
 <pre>
 >>> true and true
@@ -42,7 +70,7 @@ true
 false
 </pre>
 
-h2. Logical operators
+h4. Logical operators
 
 <pre>
 >>> 1 & 1 # and
