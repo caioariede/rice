@@ -16,10 +16,16 @@ parse(Input) ->
   release_memo(), Result.
 
 'root'(Input, Index) ->
-  p(Input, Index, 'root', fun(I,D) -> (p_seq([fun 'module'/2, p_one_or_more(fun 'clause'/2), p_optional(p_choose([fun 'spaces'/2, fun 'newline'/2]))]))(I,D) end, fun(Node, Idx) -> transform('root', Node, Idx) end).
+  p(Input, Index, 'root', fun(I,D) -> (p_seq([fun 'module'/2, fun 'functions'/2, p_optional(p_choose([fun 'spaces'/2, fun 'newline'/2]))]))(I,D) end, fun(Node, Idx) -> transform('root', Node, Idx) end).
 
 'module'(Input, Index) ->
   p(Input, Index, 'module', fun(I,D) -> (p_seq([p_string("module"), fun 'spaces'/2, fun 'identifier'/2]))(I,D) end, fun(Node, Idx) -> transform('module', Node, Idx) end).
+
+'functions'(Input, Index) ->
+  p(Input, Index, 'functions', fun(I,D) -> (p_one_or_more(fun 'function'/2))(I,D) end, fun(Node, Idx) -> transform('functions', Node, Idx) end).
+
+'function'(Input, Index) ->
+  p(Input, Index, 'function', fun(I,D) -> (p_seq([fun 'clause'/2, p_zero_or_more(fun 'clause'/2), fun 'indent'/2, p_string("end")]))(I,D) end, fun(Node, Idx) -> transform('function', Node, Idx) end).
 
 'clause'(Input, Index) ->
   p(Input, Index, 'clause', fun(I,D) -> (p_seq([fun 'indent'/2, p_string("def"), fun 'spaces'/2, fun 'identifier'/2, p_optional(p_choose([p_seq([fun 'spaces'/2, fun 'clause_args'/2, fun 'comma'/2, fun 'clause_kwargs'/2]), p_seq([fun 'spaces'/2, p_choose([fun 'clause_args'/2, fun 'clause_kwargs'/2])])])), p_choose([fun 'block'/2, fun 'block_inline'/2])]))(I,D) end, fun(Node, Idx) -> transform('clause', Node, Idx) end).
@@ -43,10 +49,10 @@ parse(Input) ->
   p(Input, Index, 'block_inline', fun(I,D) -> (p_seq([p_string(":"), p_optional(fun 'spaces'/2), fun 'statements_inline'/2]))(I,D) end, fun(Node, Idx) -> transform('block_inline', Node, Idx) end).
 
 'do'(Input, Index) ->
-  p(Input, Index, 'do', fun(I,D) -> (p_seq([p_string("do"), p_optional(p_seq([fun 'spaces'/2, fun 'clause_args'/2])), fun 'block'/2]))(I,D) end, fun(Node, Idx) -> transform('do', Node, Idx) end).
+  p(Input, Index, 'do', fun(I,D) -> (p_seq([p_one_or_more(fun 'do_clause'/2), p_string("end")]))(I,D) end, fun(Node, Idx) -> transform('do', Node, Idx) end).
 
-'do_inline'(Input, Index) ->
-  p(Input, Index, 'do_inline', fun(I,D) -> (p_seq([p_string("do"), p_optional(p_seq([fun 'spaces'/2, fun 'clause_args'/2])), p_optional(fun 'spaces'/2), fun 'block_inline'/2]))(I,D) end, fun(Node, Idx) -> transform('do_inline', Node, Idx) end).
+'do_clause'(Input, Index) ->
+  p(Input, Index, 'do_clause', fun(I,D) -> (p_seq([p_string("do"), p_optional(p_seq([fun 'spaces'/2, fun 'clause_args'/2])), fun 'block'/2]))(I,D) end, fun(Node, Idx) -> transform('do_clause', Node, Idx) end).
 
 'statements'(Input, Index) ->
   p(Input, Index, 'statements', fun(I,D) -> (p_seq([fun 'statement'/2, p_optional(fun 'statements_samedent'/2)]))(I,D) end, fun(Node, Idx) -> transform('statements', Node, Idx) end).
@@ -58,10 +64,7 @@ parse(Input) ->
   p(Input, Index, 'statements_inline', fun(I,D) -> (p_seq([fun 'statement'/2, p_zero_or_more(p_seq([fun 'comma'/2, fun 'statement'/2]))]))(I,D) end, fun(Node, Idx) -> transform('statements_inline', Node, Idx) end).
 
 'statement'(Input, Index) ->
-  p(Input, Index, 'statement', fun(I,D) -> (p_choose([fun 'do'/2, fun 'call'/2, fun 'slice'/2, fun 'variable'/2, fun 'atom'/2, fun 'string'/2, fun 'integer'/2]))(I,D) end, fun(Node, Idx) -> transform('statement', Node, Idx) end).
-
-'slice'(Input, Index) ->
-  p(Input, Index, 'slice', fun(I,D) -> (p_seq([p_choose([fun 'variable'/2, fun 'string'/2]), p_string("["), fun 'atom'/2, p_string("]")]))(I,D) end, fun(Node, Idx) -> transform('slice', Node, Idx) end).
+  p(Input, Index, 'statement', fun(I,D) -> (p_choose([fun 'do'/2, fun 'call'/2, fun 'variable'/2, fun 'atom'/2, fun 'string'/2, fun 'integer'/2]))(I,D) end, fun(Node, Idx) -> transform('statement', Node, Idx) end).
 
 'call'(Input, Index) ->
   p(Input, Index, 'call', fun(I,D) -> (p_seq([fun 'call_value'/2, p_optional(p_choose([p_seq([fun 'spaces'/2, fun 'call_args'/2, fun 'comma'/2, fun 'call_kwargs'/2]), p_seq([fun 'spaces'/2, p_choose([fun 'call_args'/2, fun 'call_kwargs'/2])])]))]))(I,D) end, fun(Node, Idx) -> transform('call', Node, Idx) end).
@@ -70,7 +73,7 @@ parse(Input) ->
   p(Input, Index, 'call_value', fun(I,D) -> (p_choose([p_seq([fun 'value'/2, p_one_or_more(p_seq([p_string("."), fun 'identifier'/2]))]), fun 'identifier'/2]))(I,D) end, fun(Node, Idx) -> transform('call_value', Node, Idx) end).
 
 'call_args'(Input, Index) ->
-  p(Input, Index, 'call_args', fun(I,D) -> (p_seq([fun 'call_args_arg'/2, p_zero_or_more(p_seq([fun 'comma'/2, fun 'call_args_arg'/2]))]))(I,D) end, fun(Node, Idx) -> transform('call_args', Node, Idx) end).
+  p(Input, Index, 'call_args', fun(I,D) -> (p_seq([p_choose([fun 'call'/2, fun 'call_args_arg'/2]), p_zero_or_more(p_seq([fun 'comma'/2, fun 'call_args_arg'/2]))]))(I,D) end, fun(Node, Idx) -> transform('call_args', Node, Idx) end).
 
 'call_args_arg'(Input, Index) ->
   p(Input, Index, 'call_args_arg', fun(I,D) -> (p_seq([fun 'value'/2, p_seq([p_not(p_seq([fun 'spaces'/2, p_string("=>")])), p_string("")])]))(I,D) end, fun(Node, Idx) -> transform('call_args_arg', Node, Idx) end).
@@ -115,7 +118,7 @@ parse(Input) ->
   p(Input, Index, 'spaces', fun(I,D) -> (p_one_or_more(p_charclass("[\s\t]")))(I,D) end, fun(Node, Idx) -> transform('spaces', Node, Idx) end).
 
 'identifier'(Input, Index) ->
-  p(Input, Index, 'identifier', fun(I,D) -> (p_seq([p_charclass("[a-zA-Z_]"), p_zero_or_more(p_charclass("[a-zA-Z0-9_-]"))]))(I,D) end, fun(Node, Idx) -> transform('identifier', Node, Idx) end).
+  p(Input, Index, 'identifier', fun(I,D) -> (p_seq([p_charclass("[a-zA-Z_]"), p_zero_or_more(p_charclass("[a-zA-Z0-9_-]")), p_optional(p_string("?"))]))(I,D) end, fun(Node, Idx) -> transform('identifier', Node, Idx) end).
 transform(Symbol,Node,Index) -> rice_transform:transform(Symbol, Node, Index).
 
 

@@ -1,8 +1,11 @@
-root <- module clause+ (spaces / newline)?;
+root <- module functions (spaces / newline)?;
 
 module <- "module" spaces identifier;
-clause <- indent "def" spaces identifier (spaces clause_args comma clause_kwargs / spaces (clause_args / clause_kwargs))? (block / block_inline);
+functions <- function+;
 
+function <- clause clause* indent "end";
+
+clause <- indent "def" spaces identifier (spaces clause_args comma clause_kwargs / spaces (clause_args / clause_kwargs))? (block / block_inline);
 clause_args <- clause_args_arg (comma clause_args_arg)*;
 clause_args_arg <- variable / atom / string / integer;
 clause_kwargs <- "*" identifier "(" spaces? clause_kwargs_key (comma clause_kwargs_key)* spaces? ")";
@@ -20,13 +23,13 @@ statements <- statement statements_samedent?;
 statements_samedent <- samedent statements+;
 statements_inline <- statement (comma statement)*;
 
-statement <- do / call / slice / variable / atom / string / integer;
+statement <- do / call / variable / atom / string / integer;
 
-slice <- (variable / string) "[" atom "]";
+%slice <- (variable / string) "[" atom "]";
 
 call <- call_value (spaces call_args comma call_kwargs / spaces (call_args / call_kwargs))?;
 call_value <- value ("." identifier)+ / identifier;
-call_args <- call_args_arg (comma call_args_arg)*;
+call_args <- (call / call_args_arg) (comma call_args_arg)*;
 call_args_arg <- value (!(spaces "=>") "");
 call_kwargs <- call_kwargs_arg (comma call_kwargs_arg)*;
 call_kwargs_arg <- value spaces? "=>" spaces? value;
@@ -50,4 +53,4 @@ integer <- "-"? [0-9]+;
 spaces <- [\s\t]+;
 
 % identifier
-identifier <- [a-zA-Z_] [a-zA-Z0-9_-]*;
+identifier <- [a-zA-Z_] [a-zA-Z0-9_-]* "?"?;

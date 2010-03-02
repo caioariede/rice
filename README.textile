@@ -60,6 +60,28 @@ true
 false
 </pre>
 
+h3. Lists
+
+<pre>
+>>> L = [1, 2, 3]
+[1, 2, 3]
+>>> L[1]
+2
+</pre>
+
+Like Python, slice notation is also supported:
+
+<pre>
+>>> L = [2, 4, 6, 8]
+[2, 4, 6, 8]
+>>> L[0:2]
+[2, 4]
+>>> L[:3]
+[2, 4, 6]
+>>> L[-1:]
+[8]
+</pre>
+
 h2. Special atoms
 
 <b>true</b>, <b>false</b> and <b>undefined</b> are considered special atoms.
