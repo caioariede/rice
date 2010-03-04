@@ -59,7 +59,7 @@ transform('clause_args', [Arg, Args], _) ->
 
 
 transform('clause_kwargs', [_, Identifier, _, _, Keyword, Keywords, _, _], {{'line', Line}, _}) ->
-    [{'match', Line, {'var', Line, rice_var(Identifier)}, {'tuple', Line, [{'atom', Line, 'kwargs'}, rice_cons([Keyword | Keywords], Line)]}}];
+    [{'match', Line, {'var', Line, rice_var(Identifier)}, {'tuple', Line, [rice_atom('kwargs', Line), rice_cons([Keyword | Keywords], Line)]}}];
 
 
 
@@ -138,7 +138,7 @@ transform('call_args_arg', [Arg, _], _) ->
 
 
 transform('call_kwargs', [Arg, Args], {{'line', Line}, _}) ->
-    [{'tuple', Line, [{'atom', Line, 'kwargs'}, rice_cons([Arg | rice_trim_left(Args, [])], Line)]}];
+    [{'tuple', Line, [rice_atom('kwargs', Line), rice_cons([Arg | rice_trim_left(Args, [])], Line)]}];
 
 
 
@@ -158,7 +158,7 @@ transform('variable', Identifier, {{'line', Line}, _}) ->
 
 
 transform('atom', Node, {{'line', Line}, _}) ->
-    {'atom', Line, list_to_atom(lists:flatten(proplists:get_value('atom', Node)))};
+    rice_atom(list_to_atom(lists:flatten(proplists:get_value('atom', Node))), Line);
 
 
 
@@ -353,7 +353,7 @@ transform('slice', [_, _, [Pos, _, []], _], {{'line', Line}, _}) when element(1,
     ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
 
 transform('slice', [Value, _, [Pos, _, []], _], {{'line', Line}, _}) ->
-    rice_func({'rice_core', 'call'}, Line, [Value, {'atom', Line, 'slice'}, rice_cons([Pos, {'integer', Line, 1}], Line)]);
+    rice_func({'rice_core', 'call'}, Line, [Value, rice_atom('slice', Line), rice_cons([Pos, {'integer', Line, 1}], Line)]);
 
 % Value "[" ":" Count "]"
 % Eg. [1, 2][:2]
@@ -361,7 +361,7 @@ transform('slice', [_, _, [[], _, Count], _], {{'line', Line}, _}) when element(
     ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
 
 transform('slice', [Value, _, [[], _, Count], _], {{'line', Line}, _}) ->
-    rice_func({'rice_core', 'call'}, Line, [Value, {'atom', Line, 'slice'}, rice_cons([{'integer', Line, 0}, Count], Line)]);
+    rice_func({'rice_core', 'call'}, Line, [Value, rice_atom('slice', Line), rice_cons([{'integer', Line, 0}, Count], Line)]);
 
 % Value "[" Pos ":" Count "]"
 % Eg. [1, 2][0:2]
@@ -369,7 +369,7 @@ transform('slice', [_, _, [Pos, _, Count], _], {{'line', Line}, _}) when (elemen
     ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
 
 transform('slice', [Value, _, [Pos, _, Count], _], {{'line', Line}, _}) ->
-    rice_func({'rice_core', 'call'}, Line, [Value, {'atom', Line, 'slice'}, rice_cons([Pos, Count], Line)]);
+    rice_func({'rice_core', 'call'}, Line, [Value, rice_atom('slice', Line), rice_cons([Pos, Count], Line)]);
 
 % Value "[" Pos "]"
 % Eg. [1, 2][1]
@@ -377,7 +377,7 @@ transform('slice', [_, _, Pos, _], {{'line', Line}, _}) when element(1, Pos) == 
     ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
 
 transform('slice', [Value, _, Pos, _], {{'line', Line}, _}) ->
-    rice_func({'rice_core', 'call'}, Line, [Value, {'atom', Line, 'slice'}, rice_cons([Pos], Line)]);
+    rice_func({'rice_core', 'call'}, Line, [Value, rice_atom('slice', Line), rice_cons([Pos], Line)]);
 
 
 
@@ -426,13 +426,13 @@ rice_call({{'identifier', Term}, [{'identifier', Function} | Tail]}, Line, Args)
     end;
 
 rice_call({Term, [{'identifier', Function} | []]}, Line, []) ->
-    rice_func({'rice_core', 'call'}, Line, [Term, {'atom', Line, list_to_atom(Function)}]);
+    rice_func({'rice_core', 'call'}, Line, [Term, rice_atom(list_to_atom(Function), Line)]);
 
 rice_call({Term, [{'identifier', Function} | []]}, Line, Args) ->
-    rice_func({'rice_core', 'call'}, Line, [Term, {'atom', Line, list_to_atom(Function)}, rice_cons(Args, Line)]);
+    rice_func({'rice_core', 'call'}, Line, [Term, rice_atom(list_to_atom(Function), Line), rice_cons(Args, Line)]);
 
 rice_call({Term, [{'identifier', Function} | Tail]}, Line, Args) ->
-    rice_call({rice_func({'rice_core', 'call'}, Line, [Term, {'atom', Line, list_to_atom(Function)}]), Tail}, Line, Args);
+    rice_call({rice_func({'rice_core', 'call'}, Line, [Term, rice_atom(list_to_atom(Function), Line)]), Tail}, Line, Args);
 
 rice_call({'identifier', Function}, Line, []) ->
     Var = rice_var(Function),
@@ -450,10 +450,10 @@ rice_call({'identifier', Function}, Line, Args) ->
 
 
 rice_func({Module, Function}, Line, Args) ->
-    {'call', Line, {'remote', Line, {'atom', Line, Module}, {'atom', Line, Function}}, Args};
+    {'call', Line, {'remote', Line, rice_atom(Module, Line), rice_atom(Function, Line)}, Args};
 
 rice_func(Function, Line, Args) ->
-    {'call', Line, {'remote', Line, {'atom', Line, 'rice_core'}, {'atom', Line, Function}}, Args}.
+    {'call', Line, {'remote', Line, rice_atom('rice_core', Line), rice_atom(Function, Line)}, Args}.
 
 
 
@@ -499,5 +499,13 @@ rice_trim_left([[_, Value] | Tail], Acc) ->
 
 
 
-rice_var([S|Tring]) ->
-    list_to_atom([string:to_upper(S)|Tring]).
+rice_var([S | Tring]) ->
+    list_to_atom([string:to_upper(S) | Tring]).
+
+
+
+
+
+
+rice_atom(Atom, Line) ->
+    {'atom', Line, Atom}.
