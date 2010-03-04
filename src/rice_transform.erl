@@ -3,6 +3,13 @@
 -export(['transform'/3]).
 
 
+-define('FATAL'(Line, Message), exit({'fatal', Line, Message})).
+
+-define('ERR_CLAUSE_INCORRECT_NAME', "Clause out of the group, incompatible name").
+-define('ERR_CLAUSE_INCORRECT_ARITY', "Clause out of the group, incompatible arity").
+-define('ERR_INDICE_NOT_INTEGER', "Indices must be integers, not float").
+
+
 
 transform('root', [Module, Functions, _], _) ->
     [Module | Functions];
@@ -93,7 +100,8 @@ transform('statements_samedent', [_, [Statements]], _) ->
     Statements;
 
 
-
+% Term "." Function
+% Eg. "hello".length
 transform('call', [[Term | Functions], []], {{'line', Line}, _}) ->
     rice_call({Term, Functions}, Line, []);
 
@@ -164,27 +172,212 @@ transform('integer', [_, Number], {{'line', Line}, _}) ->
 
 
 
+% Exponent "." Mantissa 
+% Eg. 123.45
+transform('float', [[[], Exp], _, Mantissa], {{'line', Line}, _}) ->
+    {'float', Line, list_to_float(Exp ++ "." ++ Mantissa)};
+
+% "." Mantissa
+% Eg. .45
+transform('float', [[], _, Mantissa], {{'line', Line}, _}) ->
+    {'float', Line, list_to_float("0." ++  Mantissa)};
+
+% Signed Exponent "." Mantissa
+% Eg. -123.45
+transform('float', [["-", Exp], _, Mantissa], {{'line', Line}, _}) ->
+    {'op', Line, '-', {'float', Line, list_to_float(Exp ++ "." ++  Mantissa)}};
+
+
+
+% A "===" B
+% Eg. 1.5 === 1.5
+transform('op_identical', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '=:=', A, B};
+
+
+
+% A "!==" B
+% Eg. 1 !== 1.0
+transform('op_not_identical', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '=/=', A, B};
+
+
+
+% A "==" B
+% Eg. 1 == 1.0
+transform('op_equal', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '==', A, B};
+
+
+
+% A "!=" B
+% Eg. 1 != 1.0
+transform('op_not_equal', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '/=', A, B};
+
+
+
+% A "<" B
+% Eg. 1 < 2
+transform('op_less', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '<', A, B};
+
+
+
+% A ">" B
+% Eg. 2 > 1
+transform('op_greater', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '>', A, B};
+
+
+
+% A "<=" B
+% Eg. 2 <= 2
+transform('op_less_equal', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '=<', A, B};
+
+
+
+% A ">=" B
+% Eg. 2 >= 3
+transform('op_greater_equal', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '>=', A, B};
+
+
+
+% A "and" B
+% Eg. true and true 
+transform('op_and', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, 'and', A, B};
+
+
+
+% A "or" B
+% Eg. false or true 
+transform('op_or', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, 'or', A, B};
+
+
+
+% A "xor" B
+% Eg. true xor true 
+transform('op_xor', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, 'xor', A, B};
+
+
+
+% "not" A
+% Eg. not true 
+transform('op_not', [_, _, A], {{'line', Line}, _}) ->
+    {'op', Line, 'not', A};
+
+
+
+% A "+" B
+% Eg. 2 + 2
+transform('op_add', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '+', A, B};
+
+% A "-" B
+% Eg. 2 - 2
+transform('op_sub', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '-', A, B};
+
+% A "*" B
+% Eg. 2 * 2
+transform('op_mul', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '*', A, B};
+
+% A "/" B
+% Eg. 4 / 2
+transform('op_div', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, '/', A, B};
+
+% A "%" B
+% Eg. 4 % 2 
+transform('op_mod', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, 'rem', A, B};
+
+
+
+% A & B
+% Eg. 1 & 1 (and)
+transform('op_band', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, 'band', A, B};
+
+
+
+% A | B
+% Eg. 1 | 0 (inclusive or)
+transform('op_bor', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, 'bor', A, B};
+
+
+
+% A ^ B
+% Eg. 1 ^ 1 (exclusive or) 
+transform('op_bxor', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, 'bxor', A, B};
+
+
+
+% A << B
+% Eg. 1 << 1 (shift left)
+transform('op_bsl', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, 'bsl', A, B};
+
+
+
+% A >> B
+% Eg. 1 >> 1 (shift right)
+transform('op_bsr', [A, _, _, _, B], {{'line', Line}, _}) ->
+    {'op', Line, 'bsr', A, B};
+
+
+
 transform('identifier', Identifier, _) ->
     {'identifier', lists:flatten(Identifier)};
 
 
 
+% "[" Term ("," Term)* "]"
+% Eg. [1, 2, :foo, :bar]
 transform('list', [_, _, Head, Tail, _, _], {{'line', Line}, _}) ->
     rice_cons([Head | rice_trim_left(Tail, [])], Line);
 
 
 
-transform('slice', [Value, _, [Start, _, []], _], {{'line', Line}, _}) ->
-    rice_func({'rice', 'slice'}, Line, [Start, {'integer', Line, 1}, Value]);
+% Value "[" Pos ":" "]"
+% Eg. [1, 2][2:]
+transform('slice', [_, _, [Pos, _, []], _], {{'line', Line}, _}) when element(1, Pos) == 'float' ->
+    ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
+
+transform('slice', [Value, _, [Pos, _, []], _], {{'line', Line}, _}) ->
+    rice_func({'rice_core', 'call'}, Line, [Value, {'atom', Line, 'slice'}, rice_cons([Pos, {'integer', Line, 1}], Line)]);
+
+% Value "[" ":" Count "]"
+% Eg. [1, 2][:2]
+transform('slice', [_, _, [[], _, Count], _], {{'line', Line}, _}) when element(1, Count) == 'float' ->
+    ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
 
 transform('slice', [Value, _, [[], _, Count], _], {{'line', Line}, _}) ->
-    rice_func({'rice', 'slice'}, Line, [{'integer', Line, 0}, Count, Value]);
+    rice_func({'rice_core', 'call'}, Line, [Value, {'atom', Line, 'slice'}, rice_cons([{'integer', Line, 0}, Count], Line)]);
 
-transform('slice', [Value, _, [Start, _, Count], _], {{'line', Line}, _}) ->
-    rice_func({'rice', 'slice'}, Line, [Start, Count, Value]);
+% Value "[" Pos ":" Count "]"
+% Eg. [1, 2][0:2]
+transform('slice', [_, _, [Pos, _, Count], _], {{'line', Line}, _}) when (element(1, Pos) == 'float') or (element(1, Count) == 'float') ->
+    ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
 
-transform('slice', [Value, _, Start, _], {{'line', Line}, _}) ->
-    rice_func({'rice', 'slice'}, Line, [Start, {'integer', Line, 1}, Value]);
+transform('slice', [Value, _, [Pos, _, Count], _], {{'line', Line}, _}) ->
+    rice_func({'rice_core', 'call'}, Line, [Value, {'atom', Line, 'slice'}, rice_cons([Pos, Count], Line)]);
+
+% Value "[" Pos "]"
+% Eg. [1, 2][1]
+transform('slice', [_, _, Pos, _], {{'line', Line}, _}) when element(1, Pos) == 'float' ->
+    ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
+
+transform('slice', [Value, _, Pos, _], {{'line', Line}, _}) ->
+    rice_func({'rice_core', 'call'}, Line, [Value, {'atom', Line, 'slice'}, rice_cons([Pos], Line)]);
 
 
 
@@ -220,6 +413,9 @@ scope_erase() ->
 
 
 
+rice_call({Term, []}, Line, Args) ->
+    Term;
+
 rice_call({{'identifier', Term}, [{'identifier', Function} | Tail]}, Line, Args) ->
     Var = rice_var(Term),
     case scope_exists(Var) of
@@ -230,13 +426,13 @@ rice_call({{'identifier', Term}, [{'identifier', Function} | Tail]}, Line, Args)
     end;
 
 rice_call({Term, [{'identifier', Function} | []]}, Line, []) ->
-    rice_func({'rice', 'call'}, Line, [Term, {'atom', Line, list_to_atom(Function)}]);
+    rice_func({'rice_core', 'call'}, Line, [Term, {'atom', Line, list_to_atom(Function)}]);
 
 rice_call({Term, [{'identifier', Function} | []]}, Line, Args) ->
-    rice_func({'rice', 'call'}, Line, [Term, {'atom', Line, list_to_atom(Function)}, rice_cons(Args, Line)]);
+    rice_func({'rice_core', 'call'}, Line, [Term, {'atom', Line, list_to_atom(Function)}, rice_cons(Args, Line)]);
 
 rice_call({Term, [{'identifier', Function} | Tail]}, Line, Args) ->
-    rice_call({rice_func({'rice', 'call'}, Line, [Term, {'atom', Line, list_to_atom(Function)}]), Tail}, Line, Args);
+    rice_call({rice_func({'rice_core', 'call'}, Line, [Term, {'atom', Line, list_to_atom(Function)}]), Tail}, Line, Args);
 
 rice_call({'identifier', Function}, Line, []) ->
     Var = rice_var(Function),
@@ -257,7 +453,7 @@ rice_func({Module, Function}, Line, Args) ->
     {'call', Line, {'remote', Line, {'atom', Line, Module}, {'atom', Line, Function}}, Args};
 
 rice_func(Function, Line, Args) ->
-    {'call', Line, {'remote', Line, {'atom', Line, 'rice'}, {'atom', Line, Function}}, Args}.
+    {'call', Line, {'remote', Line, {'atom', Line, 'rice_core'}, {'atom', Line, Function}}, Args}.
 
 
 
@@ -279,10 +475,10 @@ rice_clauses(_, _, [], Acc) ->
     lists:reverse(Acc);
 
 rice_clauses(Identifier, _, [{'clause', Line, ClauseIdentifier, _, _, _, _} | _], _) when Identifier /= ClauseIdentifier ->
-    exit({'error', Line, 'invalid clause identifier'});
+    ?FATAL(Line, ?ERR_CLAUSE_INCORRECT_NAME);
 
 rice_clauses(_, Arity, [{'clause', Line, _, ClauseArity, _, _, _} | _], _) when Arity /= ClauseArity ->
-    exit({'error', Line, 'invalid clause arity'});
+    ?FATAL(Line, ?ERR_CLAUSE_INCORRECT_ARITY);
 
 rice_clauses(Identifier, Arity, [{'clause', Line, Identifier, Arity, Args, Guards, Block} | Tail], Acc) ->
     rice_clauses(Identifier, Arity, Tail, [{'clause', Line, Args, Guards, Block} | Acc]).
