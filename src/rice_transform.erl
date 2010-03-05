@@ -11,6 +11,11 @@
 
 
 
+-define('BIF'(Function), (Function == "puts")
+                      or (Function == "apply")).
+
+
+
 transform('root', [Module, Functions, _], _) ->
     [Module | Functions];
 
@@ -124,6 +129,16 @@ transform('call_value', Identifier, _) ->
 
 
 
+transform('call_value_value', [_, _, Value, _, _], _) ->
+    Value;
+
+
+
+transform('unary_call', [Term | Functions], {{'line', Line}, _}) ->
+    rice_call({Term, Functions}, Line, []);
+
+
+
 transform('call_args', [Arg, Args], _) ->
     [Arg | rice_trim_left(Args, [])];
 
@@ -144,6 +159,11 @@ transform('call_kwargs', [Arg, Args], {{'line', Line}, _}) ->
 
 transform('call_kwargs_arg', [Identifier, _, _, _, Value], {{'line', Line}, _}) ->
     {'tuple', Line, [Identifier, Value]};
+
+
+
+transform('expr', [_, _, Value, _, _], _) ->
+    Value;
 
 
 
@@ -288,6 +308,11 @@ transform('op_sub', [A, _, _, _, B], {{'line', Line}, _}) ->
 transform('op_mul', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '*', A, B};
 
+% A "**" B
+% Eg. 2 ** 2 (power)
+transform('op_pow', [A, _, _, _, B], {{'line', Line}, _}) ->
+    rice_func({'math', 'pow'}, Line, [A, B]);
+
 % A "/" B
 % Eg. 4 / 2
 transform('op_div', [A, _, _, _, B], {{'line', Line}, _}) ->
@@ -381,6 +406,15 @@ transform('slice', [Value, _, Pos, _], {{'line', Line}, _}) ->
 
 
 
+transform('unary_call', {'identifier', Term}, {{'line', Line}, _}) ->
+    Var = rice_var(Term),
+    case scope_exists(Var) of
+        true ->  {'var', Line, Var};
+        _ -> rice_func(list_to_atom(Term), Line, [])
+    end;
+
+
+
 % remove this later, defensive programming / catch-all is bad, really bad!
 transform(_, Node, _) ->
     Node.
@@ -413,7 +447,7 @@ scope_erase() ->
 
 
 
-rice_call({Term, []}, Line, Args) ->
+rice_call({Term, []}, _, _) ->
     Term;
 
 rice_call({{'identifier', Term}, [{'identifier', Function} | Tail]}, Line, Args) ->
@@ -434,12 +468,15 @@ rice_call({Term, [{'identifier', Function} | []]}, Line, Args) ->
 rice_call({Term, [{'identifier', Function} | Tail]}, Line, Args) ->
     rice_call({rice_func({'rice_core', 'call'}, Line, [Term, rice_atom(list_to_atom(Function), Line)]), Tail}, Line, Args);
 
-rice_call({'identifier', Function}, Line, []) ->
-    Var = rice_var(Function),
-    case scope_exists(Var) of
-        true ->  {'var', Line, Var};
-        _ -> rice_func(list_to_atom(Function), Line, [])
-    end;
+%rice_call({'identifier', Function}, Line, []) when (?BIF(Function)) == false ->
+%    Var = rice_var(Function),
+%    case scope_exists(Var) of
+%        true ->  {'var', Line, Var};
+%        _ -> rice_func(list_to_atom(Function), Line, [])
+%    end;
+
+rice_call({'identifier', Function}, Line, Args) when (?BIF(Function)) == true ->
+    rice_func({'rice_core', list_to_atom(Function)}, Line, Args);
 
 rice_call({'identifier', Function}, Line, Args) ->
     rice_func(list_to_atom(Function), Line, Args).
@@ -453,7 +490,7 @@ rice_func({Module, Function}, Line, Args) ->
     {'call', Line, {'remote', Line, rice_atom(Module, Line), rice_atom(Function, Line)}, Args};
 
 rice_func(Function, Line, Args) ->
-    {'call', Line, {'remote', Line, rice_atom('rice_core', Line), rice_atom(Function, Line)}, Args}.
+    {'call', Line, rice_atom(Function, Line), Args}.
 
 
 

@@ -5,11 +5,10 @@ functions <- function+;
 
 function <- clause clause* indent "end";
 
-clause <- indent "def" spaces identifier (spaces clause_args comma clause_kwargs / spaces (clause_args / clause_kwargs))? (block / block_inline);
+%clause <- indent "def" spaces identifier (spaces clause_args comma clause_kwargs / spaces (clause_args / clause_kwargs))? (block / block_inline);
+clause <- indent "def" spaces identifier (spaces clause_args)? (block / block_inline);
 clause_args <- clause_args_arg (comma clause_args_arg)*;
 clause_args_arg <- atom / string / integer / identifier;
-clause_kwargs <- "*" identifier "(" spaces? clause_kwargs_key (comma clause_kwargs_key)* spaces? ")";
-clause_kwargs_key <- atom spaces? "=>" spaces? value / atom;
 
 block <- indent statements;
 block_inline <- ":" spaces? statements_inline;
@@ -23,7 +22,8 @@ statements <- statement statements_samedent?;
 statements_samedent <- samedent statements+;
 statements_inline <- statement (comma statement)*;
 
-statement <- do / op / call / atom / string / number / slice / list / identifier;
+%statement <- do / op / call / atom / string / number / slice / list / identifier;
+statement <- call / unary_call / op;
 
 op <- op_identical / op_not;
 
@@ -38,14 +38,15 @@ op_less_equal <- op_greater_equal spaces? "<=" spaces? op_less_equal / op_greate
 op_greater_equal <- op_and spaces? ">=" spaces? op_greater_equal / op_and;
 
 % logical operators
-op_not <- "not" spaces? value;
+op_not <- "not" spaces? op_not / op_and;
 op_and <- op_or spaces? "and" spaces? op_and / op_or;
 op_or <- op_xor spaces? "or" spaces? op_or / op_xor;
 op_xor <- op_add spaces? "+" spaces? op_xor / op_add;
 
 % arithmetic operators
 op_add <- op_sub spaces? "+" spaces? op_add / op_sub;
-op_sub <- op_mul spaces? "-" spaces? op_sub / op_mul;
+op_sub <- op_pow spaces? "-" spaces? op_sub / op_pow;
+op_pow <- op_mul spaces? "**" spaces? op_pow / op_mul;
 op_mul <- op_div spaces? "*" spaces? op_mul / op_div;
 op_div <- op_mod spaces? "/" spaces? op_div / op_mod;
 op_mod <- op_band spaces? "%" spaces? op_mod / op_band;
@@ -55,14 +56,22 @@ op_band <- op_bor spaces? "&" spaces? op_band / op_bor;
 op_bor <- op_bxor spaces? "|" spaces? op_bor / op_bxor;
 op_bxor <- op_bsl spaces? "^" spaces? op_bxor / op_bsl;
 op_bsl <- op_bsr spaces? "<<" spaces? op_bsl / op_bsr;
-op_bsr <- primitive spaces? ">>" spaces? op_band / primitive;
+op_bsr <- expr spaces? ">>" spaces? op_band / expr;
 
-call <- call_value (spaces call_args comma call_kwargs / spaces (call_args / call_kwargs))?;
-call_value <- value ("." identifier)+ / identifier;
-call_args <- (call / call_args_arg) (comma (call / call_args_arg))*;
-call_args_arg <- value (!(spaces "=>") "");
-call_kwargs <- call_kwargs_arg (comma call_kwargs_arg)*;
-call_kwargs_arg <- value spaces? "=>" spaces? value;
+call <- call_value (spaces call_args);
+call_value <- call_value_value ("." identifier)+ / identifier;
+call_value_value <- "(" spaces? (call / op) spaces? ")" / primary;
+call_args <- call_args_arg (comma call_args_arg)*;
+call_args_arg <- call / op;
+
+expr <- "(" spaces? (call / op) spaces? ")" / call / unary_call / primary;
+
+unary_call <- call_value;
+
+%call_value <- call_value_value ("." identifier)+ / identifier;
+%call_value_value <- ("(" spaces? value spaces? ")") / primary;
+%call_args <- call_args_arg (comma (call / call_args_arg))*;
+%call_args_arg <- call (!(spaces "=>") "");
 
 % identation
 newline <- [\r\n]+;
@@ -70,16 +79,16 @@ indent <- newline spaces?;
 samedent <- newline spaces;
 %outdent <- newline / !.; % !. means eof
 
-value <- op / do / slice / list / identifier;
+primary <- atom / string / number / slice / list / identifier;
 
 comma <- spaces? "," spaces?;
 
-list <- "[" spaces? value (comma value)* spaces? "]";
+%list <- "[" spaces? value (comma value)* spaces? "]";
+list <- "[" spaces? number (comma number)* spaces? "]";
 slice <- (string / list / identifier) "[" (number? ":" number? / number) "]";
 
 number <- float / integer;
 
-primitive <- atom / string / integer;
 string <- ('"' string:(!'"' ('\\"' / .))* '"') / ("'" string:(!"'" ("\\'" / .))* "'");
 atom <- ":" atom:[a-zA-Z0-9@_]+ / ":" "'" atom:(!"'" ("\\'" / .))+ "'";
 integer <- "-"? [0-9]+;
