@@ -5,10 +5,14 @@ functions <- function+;
 
 function <- clause clause* indent "end";
 
-%clause <- indent "def" spaces identifier (spaces clause_args comma clause_kwargs / spaces (clause_args / clause_kwargs))? (block / block_inline);
-clause <- indent "def" spaces identifier (spaces clause_args)? (block / block_inline);
-clause_args <- clause_args_arg (comma clause_args_arg)*;
+clause <- indent "def" spaces identifier (clause_args clause_guards / clause_guards / clause_args)? (block / block_inline);
+clause_args <- spaces (p_open (clause_args_arg (comma clause_args_arg)*) p_close / clause_args_arg (comma clause_args_arg)*);
 clause_args_arg <- atom / string / integer / identifier;
+clause_guards <- spaces "when" spaces clause_guards_guard (comma clause_guards_guard)*;
+clause_guards_guard <- op;
+
+p_open <- "(" spaces?;
+p_close <- spaces? ")";
 
 block <- indent statements;
 block_inline <- ":" spaces? statements_inline;
@@ -22,8 +26,7 @@ statements <- statement statements_samedent?;
 statements_samedent <- samedent statements+;
 statements_inline <- statement (comma statement)*;
 
-%statement <- do / op / call / atom / string / number / slice / list / identifier;
-statement <- call / unary_call / op;
+statement <- assign_op / call / unary_call / op;
 
 op <- op_identical / op_not;
 
@@ -67,6 +70,8 @@ call_args_arg <- call / op;
 expr <- "(" spaces? (call / op) spaces? ")" / call / unary_call / primary;
 
 unary_call <- call_value;
+
+assign_op <- identifier spaces? "=" spaces? op;
 
 %call_value <- call_value_value ("." identifier)+ / identifier;
 %call_value_value <- ("(" spaces? value spaces? ")") / primary;

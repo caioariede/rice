@@ -5,14 +5,57 @@
 
 -define('FATAL'(Line, Message), exit({'fatal', Line, Message})).
 
+
+
 -define('ERR_CLAUSE_INCORRECT_NAME', "Clause out of the group, incompatible name").
 -define('ERR_CLAUSE_INCORRECT_ARITY', "Clause out of the group, incompatible arity").
 -define('ERR_INDICE_NOT_INTEGER', "Indices must be integers, not float").
 
 
 
--define('BIF'(Function), (Function == "puts")
+% this functions are auto-imported
+-define('RFN'(Function), (Function == "puts")
                       or (Function == "apply")).
+
+
+
+% this functions may be used in guard tests
+-define('BIF'(Function), (Function == "abs")
+                      or (Function == "bit_size")
+                      or (Function == "byte_size")
+                      or (Function == "element")
+                      or (Function == "is_float")
+                      or (Function == "hd")
+                      or (Function == "is_atom")
+                      or (Function == "is_binary")
+                      or (Function == "is_bitstring")
+                      or (Function == "is_boolean")
+                      or (Function == "is_float")
+                      or (Function == "is_function")
+                      or (Function == "is_integer")
+                      or (Function == "is_list")
+                      or (Function == "is_number")
+                      or (Function == "is_pid")
+                      or (Function == "is_port")
+                      or (Function == "is_record")
+                      or (Function == "is_reference")
+                      or (Function == "is_tuple")
+                      or (Function == "length")
+                      or (Function == "node")
+                      or (Function == "round")
+                      or (Function == "self")
+                      or (Function == "size")
+                      or (Function == "tl")
+                      or (Function == "trunc")
+                      or (Function == "tuple_size")).
+
+
+
+transform('p_open', _, _) ->
+    'p_open';
+
+transform('p_close', _, _) ->
+    'p_close';
 
 
 
@@ -40,14 +83,25 @@ transform('clause', [_, _, _, {'identifier', Identifier}, [], Block], {{'line', 
     scope_erase(),
     {'clause', Line, list_to_atom(Identifier), 0, [], [], Block};
 
-transform('clause', [_, _, _, {'identifier', Identifier}, [_, Args, _, Kwargs], Block], {{'line', Line}, _}) ->
+transform('clause', [_, _, _, {'identifier', Identifier}, [{'args', Args}, {'guards', Guards}], Block], {{'line', Line}, _}) ->
     scope_erase(),
-    ArgList = Args ++ Kwargs,
-    {'clause', Line, list_to_atom(Identifier), length(ArgList), ArgList, [], Block};
+    {'clause', Line, list_to_atom(Identifier), length(Args), Args, Guards, Block};
 
-transform('clause', [_, _, _, {'identifier', Identifier}, [_, Args], Block], {{'line', Line}, _}) ->
+transform('clause', [_, _, _, {'identifier', Identifier}, {'args', Args}, Block], {{'line', Line}, _}) ->
     scope_erase(),
     {'clause', Line, list_to_atom(Identifier), length(Args), Args, [], Block};
+
+transform('clause', [_, _, _, {'identifier', Identifier}, {'guards', Guards}, Block], {{'line', Line}, _}) ->
+    scope_erase(),
+    {'clause', Line, list_to_atom(Identifier), 0, [], Guards, Block};
+
+
+
+transform('clause_args', [_, ['p_open', [Arg, Args], 'p_close']], _) ->
+    {'args', [Arg | rice_trim_left(Args, [])]};
+
+transform('clause_args', [_, [Arg, Args]], _) ->
+    {'args', [Arg | rice_trim_left(Args, [])]};
 
 
 
@@ -58,8 +112,18 @@ transform('clause_args_arg', {'identifier', Identifier}, {{'line', Line}, _}) ->
 
 
 
-transform('clause_args', [Arg, Args], _) ->
-    [Arg | rice_trim_left(Args, [])];
+transform('clause_guards', [_, _, _, Guard, Guards], _) ->
+    {'guards', [Guard | rice_trim_left(Guards, [])]};
+
+
+
+transform('clause_guards_guard', {'identifier', Identifier}, {{'line', Line}, _}) ->
+    {'var', Line, rice_var(Identifier)};
+
+
+
+transform('clause_guards_guard', Guard, {{'line', Line}, _}) ->
+    Guard;
 
 
 
@@ -105,8 +169,7 @@ transform('statements_samedent', [_, [Statements]], _) ->
     Statements;
 
 
-% Term "." Function
-% Eg. "hello".length
+
 transform('call', [[Term | Functions], []], {{'line', Line}, _}) ->
     rice_call({Term, Functions}, Line, []);
 
@@ -167,13 +230,13 @@ transform('expr', [_, _, Value, _, _], _) ->
 
 
 
+transform('assign_op', [{'identifier', Identifier}, _, _, _, Value], {{'line', Line}, _}) ->
+    {'match', Line, {'var', Line, rice_var(Identifier)}, Value};
+
+
+
 transform('string', Node, {{'line', Line}, _}) ->
     {'string', Line, lists:flatten(proplists:get_value('string', Node))};
-
-
-
-transform('variable', Identifier, {{'line', Line}, _}) ->
-    {'var', Line, rice_var(Identifier)};
 
 
 
@@ -192,169 +255,131 @@ transform('integer', [_, Number], {{'line', Line}, _}) ->
 
 
 
-% Exponent "." Mantissa 
-% Eg. 123.45
 transform('float', [[[], Exp], _, Mantissa], {{'line', Line}, _}) ->
     {'float', Line, list_to_float(Exp ++ "." ++ Mantissa)};
 
-% "." Mantissa
-% Eg. .45
+
+
 transform('float', [[], _, Mantissa], {{'line', Line}, _}) ->
     {'float', Line, list_to_float("0." ++  Mantissa)};
 
-% Signed Exponent "." Mantissa
-% Eg. -123.45
+
+
 transform('float', [["-", Exp], _, Mantissa], {{'line', Line}, _}) ->
     {'op', Line, '-', {'float', Line, list_to_float(Exp ++ "." ++  Mantissa)}};
 
 
 
-% A "===" B
-% Eg. 1.5 === 1.5
 transform('op_identical', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '=:=', A, B};
 
 
 
-% A "!==" B
-% Eg. 1 !== 1.0
 transform('op_not_identical', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '=/=', A, B};
 
 
 
-% A "==" B
-% Eg. 1 == 1.0
 transform('op_equal', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '==', A, B};
 
 
 
-% A "!=" B
-% Eg. 1 != 1.0
 transform('op_not_equal', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '/=', A, B};
 
 
 
-% A "<" B
-% Eg. 1 < 2
 transform('op_less', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '<', A, B};
 
 
 
-% A ">" B
-% Eg. 2 > 1
 transform('op_greater', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '>', A, B};
 
 
 
-% A "<=" B
-% Eg. 2 <= 2
 transform('op_less_equal', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '=<', A, B};
 
 
 
-% A ">=" B
-% Eg. 2 >= 3
 transform('op_greater_equal', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '>=', A, B};
 
 
 
-% A "and" B
-% Eg. true and true 
 transform('op_and', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, 'and', A, B};
 
 
 
-% A "or" B
-% Eg. false or true 
 transform('op_or', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, 'or', A, B};
 
 
 
-% A "xor" B
-% Eg. true xor true 
 transform('op_xor', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, 'xor', A, B};
 
 
 
-% "not" A
-% Eg. not true 
 transform('op_not', [_, _, A], {{'line', Line}, _}) ->
     {'op', Line, 'not', A};
 
 
 
-% A "+" B
-% Eg. 2 + 2
 transform('op_add', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '+', A, B};
 
-% A "-" B
-% Eg. 2 - 2
+
+
 transform('op_sub', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '-', A, B};
 
-% A "*" B
-% Eg. 2 * 2
+
+
 transform('op_mul', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '*', A, B};
 
-% A "**" B
-% Eg. 2 ** 2 (power)
+
+
 transform('op_pow', [A, _, _, _, B], {{'line', Line}, _}) ->
     rice_func({'math', 'pow'}, Line, [A, B]);
 
-% A "/" B
-% Eg. 4 / 2
+
+
 transform('op_div', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, '/', A, B};
 
-% A "%" B
-% Eg. 4 % 2 
+
+
 transform('op_mod', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, 'rem', A, B};
 
 
 
-% A & B
-% Eg. 1 & 1 (and)
 transform('op_band', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, 'band', A, B};
 
 
 
-% A | B
-% Eg. 1 | 0 (inclusive or)
 transform('op_bor', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, 'bor', A, B};
 
 
 
-% A ^ B
-% Eg. 1 ^ 1 (exclusive or) 
 transform('op_bxor', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, 'bxor', A, B};
 
 
 
-% A << B
-% Eg. 1 << 1 (shift left)
 transform('op_bsl', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, 'bsl', A, B};
 
 
 
-% A >> B
-% Eg. 1 >> 1 (shift right)
 transform('op_bsr', [A, _, _, _, B], {{'line', Line}, _}) ->
     {'op', Line, 'bsr', A, B};
 
@@ -468,14 +493,7 @@ rice_call({Term, [{'identifier', Function} | []]}, Line, Args) ->
 rice_call({Term, [{'identifier', Function} | Tail]}, Line, Args) ->
     rice_call({rice_func({'rice_core', 'call'}, Line, [Term, rice_atom(list_to_atom(Function), Line)]), Tail}, Line, Args);
 
-%rice_call({'identifier', Function}, Line, []) when (?BIF(Function)) == false ->
-%    Var = rice_var(Function),
-%    case scope_exists(Var) of
-%        true ->  {'var', Line, Var};
-%        _ -> rice_func(list_to_atom(Function), Line, [])
-%    end;
-
-rice_call({'identifier', Function}, Line, Args) when (?BIF(Function)) == true ->
+rice_call({'identifier', Function}, Line, Args) when (?RFN(Function)) == true ->
     rice_func({'rice_core', list_to_atom(Function)}, Line, Args);
 
 rice_call({'identifier', Function}, Line, Args) ->
