@@ -26,7 +26,7 @@ statements <- statement statements_samedent?;
 statements_samedent <- samedent statements+;
 statements_inline <- statement (comma statement)*;
 
-statement <- assign_op / call / unary_call / op;
+statement <- assign_op / call / op;
 
 op <- op_identical / op_not;
 
@@ -61,15 +61,15 @@ op_bxor <- op_bsl spaces? "^" spaces? op_bxor / op_bsl;
 op_bsl <- op_bsr spaces? "<<" spaces? op_bsl / op_bsr;
 op_bsr <- expr spaces? ">>" spaces? op_band / expr;
 
-call <- call_value (spaces call_args);
-call_value <- call_value_value ("." identifier)+ / identifier;
+call <- (call_value / identifier) (spaces call_args) / unary_call;
+call_value <- call_value_value ("." identifier)+;
 call_value_value <- "(" spaces? (call / op) spaces? ")" / primary;
 call_args <- call_args_arg (comma call_args_arg)*;
 call_args_arg <- call / op;
 
-expr <- "(" spaces? (call / op) spaces? ")" / call / unary_call / primary;
-
 unary_call <- call_value;
+
+expr <- "(" spaces? (call / op) spaces? ")" / call / primary;
 
 assign_op <- identifier spaces? "=" spaces? op;
 
@@ -90,7 +90,9 @@ comma <- spaces? "," spaces?;
 
 %list <- "[" spaces? value (comma value)* spaces? "]";
 list <- "[" spaces? number (comma number)* spaces? "]";
-slice <- (string / list / identifier) "[" (number? ":" number? / number) "]";
+slice <- (string / list / value) "[" (number? ":" number? / number) "]";
+
+value <- identifier;
 
 number <- float / integer;
 

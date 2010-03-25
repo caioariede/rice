@@ -122,7 +122,7 @@ transform('clause_guards_guard', {'identifier', Identifier}, {{'line', Line}, _}
 
 
 
-transform('clause_guards_guard', Guard, {{'line', Line}, _}) ->
+transform('clause_guards_guard', Guard, {{'line', _}, _}) ->
     Guard;
 
 
@@ -152,6 +152,15 @@ transform('block_inline', [_, _, Block], _) ->
 
 transform('do', [_, Args, Block], {{'line', Line}, _}) ->
     {'fun', Line, Args, [], Block};
+
+
+
+transform('statement', {'identifier', Term}, {{'line', Line}, _}) ->
+    Var = rice_var(Term),
+    case scope_exists(Var) of
+        true ->  {'var', Line, Var};
+        _ -> rice_func(list_to_atom(Term), Line, [])
+    end;
 
 
 
@@ -187,18 +196,14 @@ transform('call', [Function, [_, Args]], {{'line', Line}, _}) ->
 transform('call_value', [Node, Identifier], _) ->
     [Node] ++ rice_trim_left(Identifier, []);
 
-transform('call_value', Identifier, _) ->
-    Identifier;
+%transform('call_value', Identifier, _) ->
+%    Identifier;
 
 
 
 transform('call_value_value', [_, _, Value, _, _], _) ->
     Value;
 
-
-
-transform('unary_call', [Term | Functions], {{'line', Line}, _}) ->
-    rice_call({Term, Functions}, Line, []);
 
 
 
@@ -411,7 +416,7 @@ transform('slice', [_, _, [[], _, Count], _], {{'line', Line}, _}) when element(
     ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
 
 transform('slice', [Value, _, [[], _, Count], _], {{'line', Line}, _}) ->
-    rice_func({'rice_core', 'call'}, Line, [Value, rice_atom('slice', Line), rice_cons([{'integer', Line, 0}, Count], Line)]);
+    rice_func({'rice_core', 'call'}, Line, [Value, rice_atom('slice', Line), rice_cons([{'integer', Line, 1}, Count], Line)]);
 
 % Value "[" Pos ":" Count "]"
 % Eg. [1, 2][0:2]
@@ -427,16 +432,17 @@ transform('slice', [_, _, Pos, _], {{'line', Line}, _}) when element(1, Pos) == 
     ?FATAL(Line, ?ERR_INDICE_NOT_INTEGER);
 
 transform('slice', [Value, _, Pos, _], {{'line', Line}, _}) ->
-    rice_func({'rice_core', 'call'}, Line, [Value, rice_atom('slice', Line), rice_cons([Pos], Line)]);
+    rice_func({'rice_core', 'call'}, Line, [Value, rice_atom('slice', Line), rice_cons([Pos, {'integer', Line, 1}], Line)]);
 
 
 
-transform('unary_call', {'identifier', Term}, {{'line', Line}, _}) ->
-    Var = rice_var(Term),
-    case scope_exists(Var) of
-        true ->  {'var', Line, Var};
-        _ -> rice_func(list_to_atom(Term), Line, [])
-    end;
+transform('unary_call', [Term | Functions], {{'line', Line}, _}) ->
+    rice_call({Term, Functions}, Line, []);
+
+
+
+transform('value', {'identifier', Identifier}, {{'line', Line}, _}) ->
+    {'var', Line, rice_var(Identifier)};
 
 
 

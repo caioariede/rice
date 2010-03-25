@@ -10,4 +10,9 @@ compile:
 	erl -pa ../neotoma/ebin/ -noshell -compile "rice.erl"
 
 test:
-	erl -noshell -eval 'io:format("~s~n", [rice:file("test.ri")]), halt().'
+#	erl -noshell -eval 'io:format("~s~n", [rice:file("../tests/test_string.ri")]), halt().'
+#	erl -noshell -eval 'io:format("~s~n", [rice:file("../tests/test_integer.ri")]), halt().'
+#	erl -noshell -eval 'io:format("~s~n", [rice:file("../tests/test_float.ri")]), halt().'
+#	erl -noshell -eval 'io:format("~s~n", [rice:file("../tests/test_atom.ri")]), halt().'
+#	erl -noshell -eval 'io:format("~s~n", [rice:file("../tests/test_list.ri")]), halt().'
+	erl -noshell -eval 'io:format("~s~n", [rice:file("../tests/test_slice.ri")]), halt().'
