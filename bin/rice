@@ -1,0 +1,46 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ebin/
+
+-define(optspec, [
+    {help,    h, boolean},
+    {version, v, boolean},
+    {output,  o, {list, string}}
+]).
+
+-define(defaults, [
+    {output, "./"}
+]).
+
+main(Args) ->
+    {Opts, File} = getoptions:extract_options(Args, ?optspec, ?defaults),
+    case proplists:get_value(version, Opts) of
+        true ->
+            version();
+        _ ->
+            case proplists:get_value(help, Opts) of
+                true ->
+                    usage();
+                _ ->
+                    case File of
+                        [] ->
+                            usage();
+                        _ ->
+                            compile(File, getoptions:get_opt(output, Opts))
+                    end
+            end
+    end.
+
+usage() ->
+    version(),
+    io:format("~nusage: rice [option] file~n~n"
+           ++ "-h, --help\tshow this help~n"
+           ++ "-v, --version\tprint rice version~n"
+           ++ "-o, --output\toutput directory of .beam file~n"
+           ++ "~n").
+
+version() ->
+    rice_compiler:print_version().
+
+compile(File, Output) ->
+    rice_compiler:compile(File, Output).
