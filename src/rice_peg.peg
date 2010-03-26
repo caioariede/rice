@@ -1,7 +1,11 @@
-root <- module functions (spaces / newline)?;
+root <- module export functions (spaces / newline)?;
 
 module <- "module" spaces identifier;
-functions <- function+;
+export <- newline "export" spaces export_function (comma export_function)*;
+
+export_function <- identifier "/" integer;
+
+functions <- function*;
 
 function <- clause clause* indent "end";
 

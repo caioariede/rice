@@ -7,9 +7,10 @@
 
 
 
--define('ERR_CLAUSE_INCORRECT_NAME', "Clause out of the group, incompatible name").
--define('ERR_CLAUSE_INCORRECT_ARITY', "Clause out of the group, incompatible arity").
--define('ERR_INDICE_NOT_INTEGER', "Indices must be integers, not float").
+-define('ERR_CLAUSE_INCORRECT_NAME',    "Clause out of the group, incompatible name").
+-define('ERR_CLAUSE_INCORRECT_ARITY',   "Clause out of the group, incompatible arity").
+-define('ERR_INDICE_NOT_INTEGER',       "Indices must be integers, not float").
+-define('ERR_ARITY_NOT_INTEGER',        "Function arity must be integer").
 
 
 
@@ -59,13 +60,28 @@ transform('p_close', _, _) ->
 
 
 
-transform('root', [Module, Functions, _], _) ->
-    [Module | Functions];
+transform('root', [Module, Export, Functions, _], _) ->
+    [Module | [Export | Functions]];
 
 
 
 transform('module', [_, _, {'identifier', ModuleName}], {{'line', Line}, _}) ->
     {'attribute', Line, 'module', list_to_atom(ModuleName)};
+
+
+
+transform('export', [_, _, _, Function, Functions], {{'line', Line}, _}) ->
+    {'attribute', Line, 'export', [Function | rice_trim_left(Functions, [])]};
+
+
+
+transform('export_function', [{'identifier', Function}, _, {'integer', _, Arith}], _) ->
+    {list_to_atom(Function), Arith};
+
+
+
+transform('export_function', [_, _, _], {{'line', Line}, _}) ->
+    ?FATAL(Line, ?ERR_ARITY_NOT_INTEGER);
 
 
 
