@@ -3,41 +3,60 @@
 %%! -pa ebin/
 
 -define(optspec, [
-    {help,    h, boolean},
-    {version, v, boolean},
-    {output,  o, {list, string}}
+    {'help',    'h', boolean},
+    {'version', 'V', boolean},
+    {'output',  'o', {list, string}},
+    {'include', 'I', {list, string}},
+    {'pa',      'a', {list, string}},
+    {'pz',      'z', {list, string}},
+    {'macro',   'D', {keylist, string}},
+    {'macro',   'D', {list, string}},
+    {'warn',    'W', integer},
+    {'verbose', 'v', boolean},
+    {'term',    'T', {list, string}}
 ]).
 
 -define(defaults, [
-    {output, "./"}
+    {'output',  "./"},
+    {'verbose', 1}
 ]).
+
+usage() ->
+    version(),
+    io:format("~nUsage: rice [option] file~n~n"
+           ++ "-h, --help\tShow this help~n"
+           ++ "-V, --version\tPrint Rice version~n"
+           ++ "~nErlang Compiler Flags (see: man erlc)~n~n"
+           ++ "-o, --output\t\tWhere the compiler should place output files~n"
+           ++ "-I, --include\t\tSpecify a search directory for include files~n"
+           ++ "-a, --pa\t\tAppends directory to the front of code path~n"
+           ++ "-z, --pz\t\tAppends directory to the end of code path~n"
+           ++ "-m, --macro name\tDefines a macro~n"
+           ++ "-m, --macro name=value\tDefines a macro with the given value~n"
+           ++ "-W, --warn number\tWarning verbosity (0..2) Default is 1~n"
+           ++ "-v, --verbose\t\tEnable verbose output~n"
+           ++ "-T, --term\t\tErlang term passed unchanged to the compiler~n"
+           ++ "~n").
 
 main(Args) ->
     {Opts, File} = getoptions:extract_options(Args, ?optspec, ?defaults),
-    case proplists:get_value(version, Opts) of
+    case proplists:get_value('help', Opts) of
         true ->
-            version();
+            usage();
         _ ->
-            case proplists:get_value(help, Opts) of
+            case proplists:get_value('version', Opts) of
                 true ->
-                    usage();
+                    version();
                 _ ->
                     case File of
                         [] ->
                             usage();
                         _ ->
-                            compile(File, getoptions:get_opt(output, Opts))
+                            CompilerOpts = proplists:delete('help', proplists:delete('version', Opts)),
+                            compile(File, CompilerOpts)
                     end
             end
     end.
-
-usage() ->
-    version(),
-    io:format("~nusage: rice [option] file~n~n"
-           ++ "-h, --help\tshow this help~n"
-           ++ "-v, --version\tprint rice version~n"
-           ++ "-o, --output\toutput directory of .beam file~n"
-           ++ "~n").
 
 version() ->
     rice_compiler:print_version().

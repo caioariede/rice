@@ -8,7 +8,7 @@
 ]).
 
 -define(VERSION, 0.1).
--define(VERSION_PRINT, "0.1 (2010)").
+-define(VERSION_PRINT, "0.01 (2010)").
 
 version() ->
     ?VERSION.
@@ -16,9 +16,11 @@ version() ->
 print_version() ->
     io:format("Rice Programming Language ~s~n", [?VERSION_PRINT]).
 
-compile(File, Output) ->
+compile(File, Opts) ->
+    CompileOptions = parse_from_opts(Opts),
+    Output = proplists:get_value(output, Opts),
     AST = rice_peg:file(File),
-    case compile:forms(AST) of
+    case compile:forms(AST, CompileOptions) of
         {ok, Module, Binary} ->
             Path = string:strip(Output, right, $/) ++ "/" ++ atom_to_list(Module) ++ ".beam",
             file:write_file(Path, Binary),
@@ -36,3 +38,30 @@ erl(File, Output) ->
 erl(File) ->
     AST = rice_peg:file(File),
     erl_prettypr:format(erl_syntax:form_list(AST)).
+
+parse_from_opts([]) ->
+    [];
+
+parse_from_opts([{output, Dir} | T]) ->
+    [{outdir, Dir} | parse_from_opts(T)];
+
+parse_from_opts([{include, Dir} | T]) ->
+    [{i, Dir} | parse_from_opts(T)];
+
+parse_from_opts([{macro, Macros} | T]) ->
+    [{d, Macro, Value} || {Macro, Value} <- Macros] ++ parse_from_opts(T);
+
+parse_from_opts([{warn, 0} | T]) ->
+    parse_from_opts(T);
+
+parse_from_opts([{warn, Verbosity} | T]) ->
+    [report_warnings, {warn_format, Verbosity} | parse_from_opts(T)];
+
+parse_from_opts([{verbose, 1} | T]) ->
+    [verbose | parse_from_opts(T)];
+
+parse_from_opts([{term, [Terms]} | T]) ->
+    [list_to_atom(Term) || Term <- string:tokens(Terms, [$,])] ++ parse_from_opts(T);
+
+parse_from_opts([_ | T]) ->
+    parse_from_opts(T).
