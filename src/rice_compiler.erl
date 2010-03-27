@@ -7,7 +7,7 @@
     print_version/0
 ]).
 
--define(VERSION, 0.1).
+-define(VERSION, 0.01).
 -define(VERSION_PRINT, "0.01 (2010)").
 
 version() ->
