@@ -5,6 +5,8 @@
 -define(optspec, [
     {'help',    'h', boolean},
     {'version', 'V', boolean},
+    {'to-erl',       boolean},
+    {'to-ast',       boolean},
     {'output',  'o', {list, string}},
     {'include', 'I', {list, string}},
     {'pa',      'a', {list, string}},
@@ -18,7 +20,8 @@
 
 -define(defaults, [
     {'output',  "./"},
-    {'verbose', 1}
+    {'verbose', 1},
+    {'to-erl', 0}
 ]).
 
 usage() ->
@@ -26,6 +29,7 @@ usage() ->
     io:format("~nUsage: rice [option] file~n~n"
            ++ "-h, --help\tShow this help~n"
            ++ "-V, --version\tPrint Rice version~n"
+           ++ "--to-erl\tConvert code to Erlang source~n"
            ++ "~nErlang Compiler Flags (see: man erlc)~n~n"
            ++ "-o, --output\t\tWhere the compiler should place output files~n"
            ++ "-I, --include\t\tSpecify a search directory for include files~n"
@@ -52,14 +56,36 @@ main(Args) ->
                         [] ->
                             usage();
                         _ ->
-                            CompilerOpts = proplists:delete('help', proplists:delete('version', Opts)),
-                            compile(File, CompilerOpts)
+                            case proplists:get_value('to-erl', Opts) of
+                                true ->
+                                    try to_erl(File) of
+                                        Result -> Result
+                                    catch
+                                        throw:Error -> io:put_chars(Error)
+                                    end;
+                                _ ->
+                                    case proplists:get_value('to-ast', Opts) of
+                                        true ->
+                                            to_ast(File);
+                                        _ ->
+                                            CompilerOpts = proplists:delete('help', proplists:delete('version', Opts)),
+                                            compile(File, CompilerOpts)
+                                    end
+                            end
                     end
             end
     end.
 
 version() ->
     rice_compiler:print_version().
+
+to_ast(File) ->
+    AST = rice_compiler:ast(File),
+    io:format("~w~n", [AST]).
+
+to_erl(File) ->
+    Source = rice_compiler:erl(File),
+    io:format("~s~n", [Source]).
 
 compile(File, Output) ->
     rice_compiler:compile(File, Output).

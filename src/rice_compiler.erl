@@ -1,6 +1,7 @@
 -module(rice_compiler).
 -export([
     compile/2,
+    ast/1,
     erl/2,
     erl/1,
     version/0,
@@ -19,15 +20,26 @@ print_version() ->
 compile(File, Opts) ->
     CompileOptions = parse_from_opts(Opts),
     Output = proplists:get_value(output, Opts),
-    AST = rice_peg:file(File),
-    case compile:forms(AST, CompileOptions) of
-        {ok, Module, Binary} ->
-            Path = string:strip(Output, right, $/) ++ "/" ++ atom_to_list(Module) ++ ".beam",
-            file:write_file(Path, Binary),
-            {ok, Path};
-        Error ->
-            Error
+    try ast(File) of
+        AST -> case compile:forms(AST, CompileOptions) of
+            {ok, Module, Binary} ->
+                Path = string:strip(Output, right, $/) ++ "/" ++ atom_to_list(Module) ++ ".beam",
+                file:write_file(Path, Binary),
+                {ok, Path};
+            Error ->
+                Error
+        end
+    catch
+        Error:error -> throw(Error)
     end.
+
+ast(File) ->
+    rice_peg:file(File).
+    %case rice_peg:file(File) of
+    %    {fail, {expected, {_, Expected}, {{line, Line}, {column, Column}}}} ->
+    %        throw(io_lib:format("Error: Expected ~s (Line ~B Column ~B)~n", [Expected, Line, Column]));
+    %    AST -> AST
+    %end.
 
 erl(File, Output) ->
     Code = ?MODULE:erl(File),
@@ -36,8 +48,11 @@ erl(File, Output) ->
     Path.
 
 erl(File) ->
-    AST = rice_peg:file(File),
-    erl_prettypr:format(erl_syntax:form_list(AST)).
+    try ast(File) of
+        AST -> erl_prettypr:format(erl_syntax:form_list(AST))
+    catch
+        error:Error -> throw(Error)
+    end.
 
 parse_from_opts([]) ->
     [];

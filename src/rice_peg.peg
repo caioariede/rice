@@ -1,4 +1,4 @@
-root <- module export functions (spaces / newline)?;
+root <- module export? functions (spaces / newline)?;
 
 module <- "module" spaces identifier;
 export <- newline "export" spaces export_function (comma export_function)*;
@@ -30,7 +30,8 @@ statements <- statement statements_samedent?;
 statements_samedent <- samedent statements+;
 statements_inline <- statement (comma statement)*;
 
-statement <- assign_op / call / op;
+statement <- assign_op / case / call / op;
+%statement <- case / primary;
 
 op <- op_identical / op_not;
 
@@ -71,16 +72,18 @@ call_value_value <- "(" spaces? (call / op) spaces? ")" / primary;
 call_args <- call_args_arg (comma call_args_arg)*;
 call_args_arg <- call / op;
 
+%case <- "case" spaces primary case_clauses+ "end";
+%case_clauses <- indent match indent statements;
+case <- "case" spaces primary case_clause indent "end";
+case_clause <- indent match indent statements;
+
+match <- primary;
+
 unary_call <- call_value;
 
 expr <- "(" spaces? (call / op) spaces? ")" / call / primary;
 
 assign_op <- identifier spaces? "=" spaces? op;
-
-%call_value <- call_value_value ("." identifier)+ / identifier;
-%call_value_value <- ("(" spaces? value spaces? ")") / primary;
-%call_args <- call_args_arg (comma (call / call_args_arg))*;
-%call_args_arg <- call (!(spaces "=>") "");
 
 % identation
 newline <- [\r\n]+;

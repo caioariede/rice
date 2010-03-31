@@ -195,6 +195,16 @@ transform('statements_samedent', [_, [Statements]], _) ->
 
 
 
+transform('case', [_, _, Expr, Clauses, _, _], {{'line', Line}, _}) ->
+    {'case', Line, Expr, [Clauses]};
+
+
+
+transform('case_clause', [_, Match, _, Statements], {{'line', Line}, _}) ->
+    {'clause', Line, [Match], [], [Statements]};
+
+
+
 transform('call', [[Term | Functions], []], {{'line', Line}, _}) ->
     rice_call({Term, Functions}, Line, []);
 
