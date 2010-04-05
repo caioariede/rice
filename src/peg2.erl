@@ -1,50 +1,51 @@
 -module(peg2).
 -compile(nowarn_unused_function).
 -export([
-    t_seq/4, p_seq/1,
-    t_zero_or_more/4, p_zero_or_more/1,
-    t_string/4, p_string/1,
-    t_regex/4,
-    t_not/4,
-    t_or/4, p_or/1,
+    p/4,
+    t_seq/5, p_seq/1,
+    t_zero_or_more/5, p_zero_or_more/1,
+    t_string/5, p_string/1,
+    t_regex/5,
+    t_not/5,
+    t_or/5, p_or/1,
     lookahead/1,
-    transform/2,
+    transform/1,
     test/0
 ]).
 
 % Parser functions
 
-p(_, Index, {match, [[]], _, _}) ->
+p(_, Index, {match, [[]], _, _, _}, _) ->
     {fail, 0, Index, nothing_match};
 
-p(Name, Index, {match, Acc, Input, ParseIndex}) ->
-    {match, {Name, Acc, Index}, Input, ParseIndex};
+p(Name, Index, {match, Acc, Input, ParseIndex, _}, Transform) ->
+    {match, {Name, Acc, Index, Transform}, Input, ParseIndex, undefined};
 
-p(_, _, Failure = {fail, _, _, nothing_match}) ->
+p(_, _, Failure = {fail, _, _, nothing_match}, _) ->
     Failure;
 
-p(_, _, {fail, Count, Index, {expected, Type = {_, _}, Match}}) ->
+p(_, _, {fail, Count, Index, {expected, Type = {_, _}, Match}}, _) ->
     {fail, Count, Index, {expected, Type, Match}};
 
-p(Name, _, {fail, Count, Index, {expected, Type, Match}}) ->
+p(Name, _, {fail, Count, Index, {expected, Type, Match}}, _) ->
     {fail, Count, Index, {expected, {Name, Type}, Match}}.
 
-lookahead({match, {_, Acc, _}, _, _}) ->
+lookahead({match, {_, Acc, _, _}, _, _, _}) ->
     lookahead_acc(Acc).
 
 lookahead_acc([]) ->
     [[]];
 
-lookahead_acc([{_, Match, _} | []]) ->
+lookahead_acc([{_, Match, _, _} | []]) ->
     [Match | []];
 
-lookahead_acc([{_, Match, _} | [T]]) ->
+lookahead_acc([{_, Match, _, _} | [T]]) ->
     [Match | lookahead_acc(T)].
 
 % sequence
 
-t_seq(Name, Input, Index, Sequence) ->
-    p(Name, Index, (p_seq(Sequence))(Input, Index)).
+t_seq(Name, Input, Index, Sequence, Transform) ->
+    p(Name, Index, (p_seq(Sequence))(Input, Index), Transform).
 
 p_seq(Sequence) ->
     fun(Input, Index) ->
@@ -52,7 +53,7 @@ p_seq(Sequence) ->
     end.
 
 seq(Input, Index, [], Acc, _) ->
-    {match, lists:reverse(Acc), Input, Index};
+    {match, lists:reverse(Acc), Input, Index, undefined};
 
 seq(Input, Index, [S | Sequence], Acc, Count) ->
     case S(Input, Index) of
@@ -60,14 +61,14 @@ seq(Input, Index, [S | Sequence], Acc, Count) ->
             {fail, TestCount, FailureIndex, Failure};
         {fail, _, FailureIndex, Failure} ->
             {fail, Count, FailureIndex, Failure};
-        {match, Match, NewInput, NewIndex} ->
+        {match, Match, NewInput, NewIndex, _} ->
             seq(NewInput, NewIndex, Sequence, [Match | Acc], Count + 1)
     end.
 
 % zero or more
 
-t_zero_or_more(Name, Input, Index, Match) ->
-    p(Name, Index, (p_zero_or_more(Match))(Input, Index)).
+t_zero_or_more(Name, Input, Index, Match, Transform) ->
+    p(Name, Index, (p_zero_or_more(Match))(Input, Index), Transform).
 
 p_zero_or_more(Match) ->
     p_zero_or_more_acc(Match, []).
@@ -76,24 +77,24 @@ p_zero_or_more_acc(Match, Acc) ->
     fun(Input, Index) ->
         case Match(Input, Index) of
             {fail, 0, _, _} ->
-                {match, Acc, Input, Index};
+                {match, Acc, Input, Index, undefined};
             {fail, _, _, _} = Failure ->
                 Failure;
-            {match, Result, NewInput, NewIndex} ->
+            {match, Result, NewInput, NewIndex, _} ->
                 (p_zero_or_more_acc(Match, [Result | Acc]))(NewInput, NewIndex)
         end
     end.
 
 % string
 
-t_string(Name, Input, Index, Match) ->
-    p(Name, Index, (p_string(Match))(Input, Index)).
+t_string(Name, Input, Index, Match, Transform) ->
+    p(Name, Index, (p_string(Match))(Input, Index), Transform).
 
 p_string(Match) ->
     fun(Input, Index) ->
         case lists:prefix(Match, Input) of
             true ->
-                {match, Match, string:substr(Input, length(Match) + 1), advance_index(Match, Index)};
+                {match, Match, string:substr(Input, length(Match) + 1), advance_index(Match, Index), undefined};
             false ->
                 {fail, 0, Index, {expected, string, Match}}
         end
@@ -101,8 +102,8 @@ p_string(Match) ->
 
 % regex
 
-t_regex(Name, Input, Index, Match) ->
-    p(Name, Index, (p_regex(Match))(Input, Index)).
+t_regex(Name, Input, Index, Match, Transform) ->
+    p(Name, Index, (p_regex(Match))(Input, Index), Transform).
 
 p_regex(Match) ->
     fun(Input, Index) ->
@@ -111,7 +112,7 @@ p_regex(Match) ->
             {match, [{_, Count}]} ->
                 ResultMatch = string:substr(Input, 1, Count),
                 NewInput = string:substr(Input, Count + 1),
-                {match, ResultMatch, NewInput, advance_index(ResultMatch, Index)};
+                {match, ResultMatch, NewInput, advance_index(ResultMatch, Index), undefined};
             _ ->
                 {fail, 0, Index, {expected, regex, Match}}
         end
@@ -119,8 +120,8 @@ p_regex(Match) ->
 
 % not
 
-t_not(Name, Input, Index, Match) ->
-    p(Name, Index, (p_not(Match))(Input, Index)).
+t_not(Name, Input, Index, Match, Transform) ->
+    p(Name, Index, (p_not(Match))(Input, Index), Transform).
 
 p_not(Match) ->
     fun(Input, Index) ->
@@ -130,16 +131,16 @@ p_not(Match) ->
                     [] -> [];
                     _ -> string:substr(Input, length(ResultMatch) + 1)
                 end,
-                {match, ResultMatch, NewInput, advance_index(ResultMatch, Index)};
-            {match, ResultMatch, _, _} ->
+                {match, ResultMatch, NewInput, advance_index(ResultMatch, Index), undefined};
+            {match, ResultMatch, _, _, _} ->
                 {fail, 0, Index, {expected, 'not', ResultMatch}}
         end
     end.
 
 % or
 
-t_or(Name, Input, Index, Sequence) ->
-    p(Name, Index, (p_or(Sequence))(Input, Index)).
+t_or(Name, Input, Index, Sequence, Transform) ->
+    p(Name, Index, (p_or(Sequence))(Input, Index), Transform).
 
 p_or(Sequence) ->
     fun(Input, Index) ->
@@ -151,7 +152,7 @@ p_or_acc([], _, _, _, MoreProx) ->
 
 p_or_acc([S | Sequence], Input, Index, Count, MoreProx) ->
     case S(Input, Index) of
-        {match, _, _, _} = Match ->
+        {match, _, _, _, _} = Match ->
             Match;
         {fail, FailCount, _, _} = Failure when FailCount > Count ->
             p_or_acc(Sequence, Input, Index, FailCount, Failure);
@@ -168,15 +169,14 @@ advance_index(Match, Index) ->
               _ -> {Line, {column, C + 1}}
         end end, Index, Match).
 
-transform([], _) ->
+transform([]) ->
     [];
 
-transform([{Name, Children, Index} | Tail], Fn) ->
-    [Fn(Name, transform(Children, Fn), Index) | transform(Tail, Fn)];
+transform([Node = {_, Children, Index, Transform} | Tail]) ->
+    [Transform(transform(Children), Index) | transform(Tail)];
 
-transform([Terminal | Tail], Fn) ->
-    [Terminal | transform(Tail, Fn)].
-
+transform([Terminal | Tail]) ->
+    [Terminal | transform(Tail)].
 -include_lib("eunit/include/eunit.hrl").
 
 test() ->

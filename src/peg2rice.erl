@@ -10,28 +10,54 @@
 % Rules
 
 'root'(Input, Index) ->
-    ?p:t_seq('root', Input, Index, [ ?t('module'), ?p:p_or([ ?p:p_seq([ ?t('nl'), ?t('end') ]), ?p:p_zero_or_more(?t('functions')) ]) ]).
-
+    ?p:t_seq('root', Input, Index, [ ?t('module'), ?p:p_zero_or_more(?t('functions')) ],
+    fun([Module, []], _) ->
+        Module;
+    ([Module, Functions], _) ->
+        [Module | Functions]
+    end).
+ 
 'module'(Input, Index) ->
-    ?p:t_seq('module', Input, Index, [ ?p:p_string("module"), ?t('spaces'), ?t('identifier') ]).
+    ?p:t_seq('module', Input, Index, [ ?p:p_string("module"), ?t('spaces'), ?t('identifier') ],
+    fun([_, _, Name], {{line, Line}, _}) ->
+        {'attribute', Line, 'module', list_to_atom(Name)}
+    end).
 
 'functions'(Input, Index) ->
-    ?p:t_seq('functions', Input, Index, [ ?t('clause'), ?t('end') ]).
+    ?p:t_seq('functions', Input, Index, [ ?t('clause'), ?t('end') ],
+    fun(Node, _) ->
+        Node
+    end).
 
 'clause'(Input, Index) ->
-    ?p:t_seq('clause', Input, Index, [ ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'), ?t('statements'), ?t('dedent') ]).
+    ?p:t_seq('clause', Input, Index, [ ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'), ?t('statements'), ?t('dedent') ],
+    fun(Node, _) ->
+        Node
+    end).
 
 'statements'(Input, Index) ->
-    ?p:t_seq('statements', Input, Index, [ ?t('indent'), ?t('statement'), ?p:p_zero_or_more(?t('statements_sm')) ]).
+    ?p:t_seq('statements', Input, Index, [ ?t('indent'), ?t('statement'), ?p:p_zero_or_more(?t('statements_sm')) ],
+    fun(Node, _) ->
+        Node
+    end).
 
 'statements_sm'(Input, Index) ->
-    ?p:t_seq('statements_sm', Input, Index, [ ?t('samedent'), ?t('statement') ]).
+    ?p:t_seq('statements_sm', Input, Index, [ ?t('samedent'), ?t('statement') ],
+    fun(Node, _) ->
+        Node
+    end).
 
 'statement'(Input, Index) ->
-    ?p:t_string('statement', Input, Index, "caio").
+    ?p:t_string('statement', Input, Index, "foobar",
+    fun(Node, _) ->
+        Node
+    end).
 
 'indent'(Input, Index) ->
-    R = ?p:t_seq('indent', Input, Index, [ ?t('nl'), ?p:p_zero_or_more(?t('spaces')) ]),
+    R = ?p:t_seq('indent', Input, Index, [ ?t('nl'), ?p:p_zero_or_more(?t('spaces')) ],
+    fun(_, _) ->
+        'indent'
+    end),
 
     Stack = get('__stack'),
 
@@ -54,7 +80,10 @@
     end.
 
 'dedent'(Input, Index) ->
-    R = ?p:t_seq('dedent', Input, Index, [ ?t('nl'), ?p:p_zero_or_more(?t('spaces')) ]),
+    R = ?p:t_seq('dedent', Input, Index, [ ?t('nl'), ?p:p_zero_or_more(?t('spaces')) ],
+    fun(_, _) ->
+        'dedent'
+    end),
 
     [_ | [PrevStack | NewStack]] = get('__stack'),
 
@@ -70,10 +99,12 @@
         _ ->
             R
     end.
-    
 
 'samedent'(Input, Index) ->
-    R = ?p:t_seq('samedent', Input, Index, [ ?t('nl'), ?p:p_zero_or_more(?t('spaces')) ]),
+    R = ?p:t_seq('samedent', Input, Index, [ ?t('nl'), ?p:p_zero_or_more(?t('spaces')) ],
+    fun(_, _) ->
+        'samedent'
+    end),
 
     Stack = get('__stack'),
 
@@ -92,30 +123,34 @@
     end.
 
 'identifier'(Input, Index) ->
-    ?p:t_regex('identifier', Input, Index, "[a-zA-Z]+").
+    ?p:t_regex('identifier', Input, Index, "[a-zA-Z]+",
+    fun(Node, _) ->
+        Node
+    end).
 
 'spaces'(Input, Index) ->
-    ?p:t_regex('spaces', Input, Index, "[\\s\\t]+").
+    ?p:t_regex('spaces', Input, Index, "\s+",
+    fun(_, _) ->
+        'spaces'
+    end).
 
 'nl'(Input, Index) ->
-    ?p:t_regex('nl', Input, Index, "\\n").
+    ?p:t_regex('nl', Input, Index, "\n",
+    fun(_, _) ->
+        'nl'
+    end).
 
 'eof'(Input, Index) ->
-    ?p:t_not('eof', Input, Index, ?p:p_string("end")).
+    ?p:t_not('eof', Input, Index, ?p:p_string("end"),
+    fun(_, _) ->
+        'eof'
+    end).
 
 'end'(Input, Index) ->
-    ?p:t_string('end', Input, Index, "end").
-
-% Transformation
-
-transform('root', Node, _) ->
-    Node;
-
-transform('module', [_, _, Module], _) ->
-    {attribute, 1, list_to_atom(Module)};
-
-transform(_, Node, _) ->
-    Node.
+    ?p:t_string('end', Input, Index, "end",
+    fun(_, _) ->
+        'end'
+    end).
 
 % Parsing functions
 
@@ -124,8 +159,9 @@ parse(Input) ->
     put('__stack', [0]),
 
     case 'root'(Input, {{line, 1}, {column, 1}}) of
-        {match, AST, _, _} ->
-            [Transformed] = ?p:transform([AST], fun transform/3),
+        {match, AST, _, _, Transform} ->
+            io:format("~p~n", [AST]),
+            [Transformed] = ?p:transform([AST]),
             Transformed;
         {fail, _, Index, Expected} ->
             {fail, Index, Expected}
