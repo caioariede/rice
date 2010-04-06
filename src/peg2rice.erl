@@ -10,10 +10,10 @@
 % Rules
 
 'root'(Input, Index) ->
-    ?p:t_seq('root', Input, Index, [ ?t('module'), ?p:p_zero_or_more(?t('functions')) ],
-    fun([Module, []], _) ->
+    ?p:t_seq('root', Input, Index, [ ?t('module'), ?p:p_zero_or_more(?t('function')), ?p:p_eof() ],
+    fun([Module, [], _], _) ->
         Module;
-    ([Module, Functions], _) ->
+    ([Module, Functions, _], _) ->
         [Module | Functions]
     end).
  
@@ -23,16 +23,16 @@
         {'attribute', Line, 'module', list_to_atom(Name)}
     end).
 
-'functions'(Input, Index) ->
-    ?p:t_seq('functions', Input, Index, [ ?t('clause'), ?t('end') ],
-    fun(Node, _) ->
-        Node
+'function'(Input, Index) ->
+    ?p:t_seq('functions', Input, Index, [ ?p:p_zero_or_more(?t('clause')), ?t('end') ],
+    fun([Clauses = [{'clause', Line, Identifier} | _], _], _) ->
+        {'function', Line, Identifier, 123, Clauses}
     end).
 
 'clause'(Input, Index) ->
     ?p:t_seq('clause', Input, Index, [ ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'), ?t('statements'), ?t('dedent') ],
-    fun(Node, _) ->
-        Node
+    fun([_, _, _, Identifier, Statements, _], {{line, Line}, _}) ->
+        {'clause', Line, list_to_atom(Identifier)}
     end).
 
 'statements'(Input, Index) ->
@@ -140,12 +140,6 @@
         'nl'
     end).
 
-'eof'(Input, Index) ->
-    ?p:t_not('eof', Input, Index, ?p:p_string("end"),
-    fun(_, _) ->
-        'eof'
-    end).
-
 'end'(Input, Index) ->
     ?p:t_string('end', Input, Index, "end",
     fun(_, _) ->
@@ -160,9 +154,7 @@ parse(Input) ->
 
     case 'root'(Input, {{line, 1}, {column, 1}}) of
         {match, AST, _, _, Transform} ->
-            io:format("~p~n", [AST]),
-            [Transformed] = ?p:transform([AST]),
-            Transformed;
+            hd(?p:transform([AST]));
         {fail, _, Index, Expected} ->
             {fail, Index, Expected}
     end.

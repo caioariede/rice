@@ -8,6 +8,7 @@
     t_regex/5,
     t_not/5,
     t_or/5, p_or/1,
+    p_eof/0,
     lookahead/1,
     transform/1,
     test/0
@@ -71,17 +72,18 @@ t_zero_or_more(Name, Input, Index, Match, Transform) ->
     p(Name, Index, (p_zero_or_more(Match))(Input, Index), Transform).
 
 p_zero_or_more(Match) ->
-    p_zero_or_more_acc(Match, []).
+    p_zero_or_more_acc(Match, [], 0).
 
-p_zero_or_more_acc(Match, Acc) ->
+p_zero_or_more_acc(Match, Acc, Count) ->
     fun(Input, Index) ->
         case Match(Input, Index) of
-            {fail, 0, _, _} ->
+            {fail, TestCount, _, _} when TestCount == 0 ->
                 {match, Acc, Input, Index, undefined};
             {fail, _, _, _} = Failure ->
+                io:format("~p~n", [Failure]),
                 Failure;
             {match, Result, NewInput, NewIndex, _} ->
-                (p_zero_or_more_acc(Match, [Result | Acc]))(NewInput, NewIndex)
+                (p_zero_or_more_acc(Match, [Result | Acc], Count + 1))(NewInput, NewIndex)
         end
     end.
 
@@ -94,7 +96,7 @@ p_string(Match) ->
     fun(Input, Index) ->
         case lists:prefix(Match, Input) of
             true ->
-                {match, Match, string:substr(Input, length(Match) + 1), advance_index(Match, Index), undefined};
+                {match, {string, Match}, string:substr(Input, length(Match) + 1), advance_index(Match, Index), undefined};
             false ->
                 {fail, 0, Index, {expected, string, Match}}
         end
@@ -160,6 +162,19 @@ p_or_acc([S | Sequence], Input, Index, Count, MoreProx) ->
             p_or_acc(Sequence, Input, Index, Count, MoreProx)
     end.
 
+% eof
+
+p_eof() ->
+    fun(Input, Index) ->
+        case Input of
+            [] ->
+                {match, [], 'eof', Index, undefined};
+            [Match | _] ->
+                {fail, 0, Index, {expected, 'eof', Match}}
+        end
+    end.
+    
+
 % Internal functions
 
 advance_index(Match, Index) ->
@@ -169,14 +184,34 @@ advance_index(Match, Index) ->
               _ -> {Line, {column, C + 1}}
         end end, Index, Match).
 
+% Transformation
+
 transform([]) ->
     [];
 
-transform([Node = {_, Children, Index, Transform} | Tail]) ->
-    [Transform(transform(Children), Index) | transform(Tail)];
+transform([Sequence | Tail]) when is_list(Sequence) ->
+    [transform_sequence(Sequence) | transform(Tail)];
 
-transform([Terminal | Tail]) ->
-    [Terminal | transform(Tail)].
+transform([Node | Tail]) ->
+    [transform(Node) | transform(Tail)];
+
+transform({string, String}) ->
+    String;
+
+transform({_, Children, Index, Transform}) ->
+    Transform(transform(Children), Index);
+
+transform(Node) ->
+    Node.
+
+transform_sequence([]) ->
+    [];
+
+transform_sequence([Node | Tail]) ->
+    [transform(Node) | transform_sequence(Tail)].
+
+% Test
+
 -include_lib("eunit/include/eunit.hrl").
 
 test() ->
