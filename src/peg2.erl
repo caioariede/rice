@@ -77,10 +77,9 @@ p_zero_or_more(Match) ->
 p_zero_or_more_acc(Match, Acc, Count) ->
     fun(Input, Index) ->
         case Match(Input, Index) of
-            {fail, TestCount, _, _} when TestCount == 0 ->
+            {fail, TestCount, NewIndex, _} when (TestCount == 0) or (Count > 0) ->
                 {match, Acc, Input, Index, undefined};
             {fail, _, _, _} = Failure ->
-                io:format("~p~n", [Failure]),
                 Failure;
             {match, Result, NewInput, NewIndex, _} ->
                 (p_zero_or_more_acc(Match, [Result | Acc], Count + 1))(NewInput, NewIndex)

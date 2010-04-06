@@ -24,27 +24,27 @@
     end).
 
 'function'(Input, Index) ->
-    ?p:t_seq('functions', Input, Index, [ ?p:p_zero_or_more(?t('clause')), ?t('end') ],
-    fun([Clauses = [{'clause', Line, Identifier} | _], _], _) ->
+    ?p:t_seq('function', Input, Index, [ ?p:p_zero_or_more(?t('clause')), ?t('end') ],
+    fun([Clauses = [{'clause', Line, Identifier, _} | _], _], _) ->
         {'function', Line, Identifier, 123, Clauses}
     end).
 
 'clause'(Input, Index) ->
     ?p:t_seq('clause', Input, Index, [ ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'), ?t('statements'), ?t('dedent') ],
     fun([_, _, _, Identifier, Statements, _], {{line, Line}, _}) ->
-        {'clause', Line, list_to_atom(Identifier)}
+        {'clause', Line, list_to_atom(Identifier), Statements}
     end).
 
 'statements'(Input, Index) ->
     ?p:t_seq('statements', Input, Index, [ ?t('indent'), ?t('statement'), ?p:p_zero_or_more(?t('statements_sm')) ],
-    fun(Node, _) ->
-        Node
+    fun([_, Statement, Statements], _) ->
+        [Statement | Statements]
     end).
 
 'statements_sm'(Input, Index) ->
     ?p:t_seq('statements_sm', Input, Index, [ ?t('samedent'), ?t('statement') ],
-    fun(Node, _) ->
-        Node
+    fun([_, Statement], _) ->
+        Statement
     end).
 
 'statement'(Input, Index) ->
