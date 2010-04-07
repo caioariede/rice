@@ -25,14 +25,46 @@
 
 'function'(Input, Index) ->
     ?p:t_seq('function', Input, Index, [ ?p:p_zero_or_more(?t('clause')), ?t('end') ],
-    fun([Clauses = [{'clause', Line, Identifier, _} | _], _], _) ->
-        {'function', Line, Identifier, 123, Clauses}
+    fun([Clauses = [{'clause', Line, Identifier, Args, _} | _], _], _) ->
+        {'function', Line, Identifier, length(Args), Clauses}
     end).
 
 'clause'(Input, Index) ->
-    ?p:t_seq('clause', Input, Index, [ ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'), ?t('statements'), ?t('dedent') ],
-    fun([_, _, _, Identifier, Statements, _], {{line, Line}, _}) ->
-        {'clause', Line, list_to_atom(Identifier), Statements}
+    ?p:t_seq('clause', Input, Index, [
+
+        ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'), ?t('clause_args'),
+
+            ?t('statements'),
+
+        ?t('dedent')
+
+    ],
+    fun([_, _, _, Identifier, Args, Statements, _], {{line, Line}, _}) ->
+        {'clause', Line, list_to_atom(Identifier), Args, Statements}
+    end).
+
+'clause_args'(Input, Index) ->
+    ?p:t_seq('clause_args', Input, Index, [
+    
+        ?t('spaces'),
+        
+        ?t('('), ?p:p_seq([
+        
+            ?t('clause_args_arg'),
+            
+            ?p:p_zero_or_more(?p:p_seq([ ?t('comma'), ?t('clause_args_arg') ]))
+            
+        ]), ?t(')')
+        
+    ],
+    fun([_, _, [Arg, Args], _], _) ->
+        [Arg | util_trim_left(Args)]
+    end).
+
+'clause_args_arg'(Input, Index) ->
+    ?p:t_string('clause_args_arg', Input, Index, "arg",
+    fun(Node, _) ->
+        Node
     end).
 
 'statements'(Input, Index) ->
@@ -133,9 +165,15 @@
     end).
 
 'spaces'(Input, Index) ->
-    ?p:t_regex('spaces', Input, Index, "\s+",
+    ?p:t_regex('spaces', Input, Index, "[\s\t]+",
     fun(_, _) ->
         'spaces'
+    end).
+
+'comma'(Input, Index) ->
+    ?p:t_regex('comma', Input, Index, "[\s\t]*,[\s\t]*",
+    fun(_, _) ->
+        'comma'
     end).
 
 'nl'(Input, Index) ->
@@ -149,6 +187,26 @@
     fun(_, _) ->
         'end'
     end).
+
+'('(Input, Index) ->
+    ?p:t_string('(', Input, Index, "(",
+    fun(_, _) ->
+        '('
+    end).
+
+')'(Input, Index) ->
+    ?p:t_string(')', Input, Index, ")",
+    fun(_, _) ->
+        ')'
+    end).
+
+% Utils
+
+util_trim_left([]) ->
+    [];
+
+util_trim_left([[_ | H] | Tail]) ->
+    [H | util_trim_left(Tail)].
 
 % Parsing functions
 
