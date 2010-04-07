@@ -73,7 +73,7 @@
                     [] -> 4;
                     _ -> hd(tl(Stack))
                 end,
-                {fail, 0, Index, {expected, indent, [SupposeStack]}}
+                {fail, 0, Index, {expected, indent, SupposeStack, NewStack}}
             end;
         _ ->
             R
@@ -90,11 +90,12 @@
     case element(1, R) of
         match ->
             [_, Spaces] = ?p:lookahead(R),
-            if length(Spaces) == PrevStack ->
+            NumberOfSpaces = length(Spaces),
+            if NumberOfSpaces == PrevStack ->
                 put('__stack', NewStack),
                 R;
             true ->
-                {fail, 0, Index, {expected, dedent, [PrevStack]}}
+                {fail, 0, Index, {expected, dedent, PrevStack, NumberOfSpaces}}
             end;
         _ ->
             R
@@ -110,13 +111,16 @@
 
     case element(1, R) of
         match ->
-            CurrentStack = hd(Stack),
+            CurrentStack = case Stack of
+                [] -> 0;
+                 _ -> hd(Stack)
+            end,
 
             case ?p:lookahead(R) of
                 ["\n", Spaces] when length(Spaces) == CurrentStack ->
                     R;
-                _ ->
-                    {fail, 0, Index, {expected, samedent, [CurrentStack]}}
+                [_, Spaces] ->
+                    {fail, length(Spaces), Index, {expected, samedent, CurrentStack, length(Spaces)}}
             end;
         _ ->
             R

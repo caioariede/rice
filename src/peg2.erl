@@ -11,6 +11,7 @@
     p_eof/0,
     lookahead/1,
     transform/1,
+    advance_index/2,
     test/0
 ]).
 
@@ -25,11 +26,11 @@ p(Name, Index, {match, Acc, Input, ParseIndex, _}, Transform) ->
 p(_, _, Failure = {fail, _, _, nothing_match}, _) ->
     Failure;
 
-p(_, _, {fail, Count, Index, {expected, Type = {_, _}, Match}}, _) ->
-    {fail, Count, Index, {expected, Type, Match}};
+p(_, _, {fail, Count, Index, {expected, Type = {_, _}, Match, Given}}, _) ->
+    {fail, Count, Index, {expected, Type, Match, Given}};
 
-p(Name, _, {fail, Count, Index, {expected, Type, Match}}, _) ->
-    {fail, Count, Index, {expected, {Name, Type}, Match}}.
+p(Name, _, {fail, Count, Index, {expected, Type, Match, Given}}, _) ->
+    {fail, Count, Index, {expected, {Name, Type}, Match, Given}}.
 
 lookahead({match, {_, Acc, _, _}, _, _, _}) ->
     lookahead_acc(Acc).
@@ -58,10 +59,10 @@ seq(Input, Index, [], Acc, _) ->
 
 seq(Input, Index, [S | Sequence], Acc, Count) ->
     case S(Input, Index) of
-        {fail, TestCount, FailureIndex, Failure} when (Count == 0) and (TestCount > 0)->
-            {fail, TestCount, FailureIndex, Failure};
-        {fail, _, FailureIndex, Failure} ->
+        {fail, TestCount, FailureIndex, Failure} when TestCount == 0 ->
             {fail, Count, FailureIndex, Failure};
+        {fail, _, _, _} = Failure ->
+            Failure;
         {match, Match, NewInput, NewIndex, _} ->
             seq(NewInput, NewIndex, Sequence, [Match | Acc], Count + 1)
     end.
@@ -77,10 +78,12 @@ p_zero_or_more(Match) ->
 p_zero_or_more_acc(Match, Acc, Count) ->
     fun(Input, Index) ->
         case Match(Input, Index) of
-            {fail, TestCount, NewIndex, _} when (TestCount == 0) or (Count > 0) ->
+            {fail, TestCount, _, _} = Failure when TestCount == 0 ->
                 {match, Acc, Input, Index, undefined};
             {fail, _, _, _} = Failure ->
                 Failure;
+            {match, Result, [], NewIndex, _} ->
+                {match, [Result | Acc], [], NewIndex, undefined};
             {match, Result, NewInput, NewIndex, _} ->
                 (p_zero_or_more_acc(Match, [Result | Acc], Count + 1))(NewInput, NewIndex)
         end
@@ -97,7 +100,8 @@ p_string(Match) ->
             true ->
                 {match, {string, Match}, string:substr(Input, length(Match) + 1), advance_index(Match, Index), undefined};
             false ->
-                {fail, 0, Index, {expected, string, Match}}
+                Given = string:substr(Input, 1, length(Match)),
+                {fail, 0, Index, {expected, string, Match, Given}}
         end
     end.
 
@@ -115,7 +119,8 @@ p_regex(Match) ->
                 NewInput = string:substr(Input, Count + 1),
                 {match, ResultMatch, NewInput, advance_index(ResultMatch, Index), undefined};
             _ ->
-                {fail, 0, Index, {expected, regex, Match}}
+                Given = string:substr(Input, 1, length(Match)),
+                {fail, 0, Index, {expected, regex, Match, Given}}
         end
     end.
 
@@ -134,7 +139,7 @@ p_not(Match) ->
                 end,
                 {match, ResultMatch, NewInput, advance_index(ResultMatch, Index), undefined};
             {match, ResultMatch, _, _, _} ->
-                {fail, 0, Index, {expected, 'not', ResultMatch}}
+                {fail, 0, Index, {expected, 'not', Match, ResultMatch}}
         end
     end.
 
@@ -169,7 +174,7 @@ p_eof() ->
             [] ->
                 {match, [], 'eof', Index, undefined};
             [Match | _] ->
-                {fail, 0, Index, {expected, 'eof', Match}}
+                {fail, 0, Index, {expected, 'eof', [], [Match]}}
         end
     end.
     
