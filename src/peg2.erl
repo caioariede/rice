@@ -131,7 +131,7 @@ p_optional(Match) ->
         end
     end.
 
-% no matter
+% unimportant
 
 t_unimportant(Name, Input, Index, Match, Transform) ->
     p(Name, Index, (p_unimportant(Match))(Input, Index), Transform).
@@ -145,8 +145,6 @@ p_unimportant(Match) ->
                 Other
         end
     end.
-
-% no matter
 
 % string
 
