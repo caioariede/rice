@@ -4,6 +4,7 @@
     p/4,
     t_seq/5, p_seq/1,
     t_zero_or_more/5, p_zero_or_more/1,
+    t_one_or_more/5, p_one_or_more/1,
     t_string/5, p_string/1,
     t_regex/5,
     t_not/5,
@@ -67,6 +68,28 @@ seq(Input, Index, [S | Sequence], Acc, Count) ->
             seq(NewInput, NewIndex, Sequence, [Match | Acc], Count + 1)
     end.
 
+% one or more
+
+t_one_or_more(Name, Input, Index, Match, Transform) ->
+    p(Name, Index, (p_one_or_more(Match))(Input, Index), Transform).
+
+p_one_or_more(Match) ->
+    p_one_or_more_acc(Match, [], 0).
+
+p_one_or_more_acc(Match, Acc, Count) ->
+    fun(Input, Index) ->
+        case Match(Input, Index) of
+            {fail, TestCount, _, _} when (TestCount == 0) and (Count > 0) ->
+                {match, Acc, Input, Index, undefined};
+            {fail, _, _, _} = Failure ->
+                Failure;
+            {match, Result, [], NewIndex, _} ->
+                {match, [Result | Acc], [], NewIndex, undefined};
+            {match, Result, NewInput, NewIndex, _} ->
+                (p_one_or_more_acc(Match, [Result | Acc], Count + 1))(NewInput, NewIndex)
+        end
+    end.
+
 % zero or more
 
 t_zero_or_more(Name, Input, Index, Match, Transform) ->
@@ -78,7 +101,7 @@ p_zero_or_more(Match) ->
 p_zero_or_more_acc(Match, Acc, Count) ->
     fun(Input, Index) ->
         case Match(Input, Index) of
-            {fail, TestCount, _, _} = Failure when TestCount == 0 ->
+            {fail, TestCount, _, _} when TestCount == 0 ->
                 {match, Acc, Input, Index, undefined};
             {fail, _, _, _} = Failure ->
                 Failure;

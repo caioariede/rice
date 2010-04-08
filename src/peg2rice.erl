@@ -24,7 +24,7 @@
     end).
 
 'function'(Input, Index) ->
-    ?p:t_seq('function', Input, Index, [ ?p:p_zero_or_more(?t('clause')), ?t('end') ],
+    ?p:t_seq('function', Input, Index, [ ?p:p_one_or_more(?t('clause')), ?t('end') ],
     fun([Clauses = [{'clause', Line, Identifier, Args, _} | _], _], _) ->
         {'function', Line, Identifier, length(Args), Clauses}
     end).
