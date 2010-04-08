@@ -131,7 +131,7 @@
     end).
 
 'clause_guards_guard'(Input, Index) ->
-    ?p:t_or('clause_guards_guard', Input, Index, [ ?t('atom'), ?t('number') ],
+    ?p:t_or('clause_guards_guard', Input, Index, [ ?t('atom'), ?t('number'), ?t('string') ],
     fun(Node, _) ->
         Node
     end).
@@ -227,6 +227,14 @@
             R
     end.
 
+'string'(Input, Index) ->
+    ?p:t_seq('spaces', Input, Index, [
+        ?p:p_seq([ ?p:p_string("\""), ?p:p_one_or_more(?p:p_not(?p:p_string("\""))), ?p:p_string("\"") ])
+    ],
+    fun([_, String, _], _) ->
+        String
+    end).
+
 'atom'(Input, Index) ->
     ?p:t_or('atom', Input, Index, [
 
@@ -235,10 +243,13 @@
         ?p:p_seq([ ?p:p_string("'"), ?p:p_one_or_more(?p:p_not(?p:p_string("'"))), ?p:p_string("'") ])
 
     ],
+
     fun([":", Name], {{line, Line}, _}) ->
         {'atom', Line, list_to_atom(Name)};
+
     ([_, Name, _], {{line, Line}, _}) ->
         {'atom', Line, list_to_atom(Name)}
+
     end).
 
 'number'(Input, Index) ->
@@ -249,16 +260,21 @@
 
 'float'(Input, Index) ->
     ?p:t_regex('float', Input, Index, "[0-9]*\.[0-9]+",
+
     fun([$.|_] = Node, {{line, Line}, _}) ->
         {float, Line, list_to_float("0" ++ Node)};
+
     (Node, {{line, Line}, _}) ->
         {float, Line, list_to_float(Node)}
+
     end).
 
 'integer'(Input, Index) ->
     ?p:t_regex('integer', Input, Index, "[0-9]+",
+
     fun(Node, {{line, Line}, _}) ->
         {integer, Line, list_to_integer(Node)}
+
     end).
 
 'identifier'(Input, Index) ->
