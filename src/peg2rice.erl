@@ -11,14 +11,12 @@
 
 'root'(Input, Index) ->
     ?p:t_seq('root', Input, Index, [
-    
         ?t('module'), ?p:p_zero_or_more(?t('function')), ?p:p_eof()
-    
     ],
 
     fun ([Module, [], _], _) ->
         Module;
-    
+
     ([Module, Functions, _], _) ->
         [Module | Functions]
 
@@ -26,9 +24,7 @@
  
 'module'(Input, Index) ->
     ?p:t_seq('module', Input, Index, [
-    
         ?p:p_string("module"), ?t('spaces'), ?t('identifier')
-        
     ],
 
     fun ([_, _, Name], {{line, Line}, _}) ->
@@ -38,9 +34,7 @@
 
 'function'(Input, Index) ->
     ?p:t_seq('function', Input, Index, [
-    
         ?p:p_one_or_more(?t('clause')), ?t('end')
-    
     ],
 
     fun ([Clauses = [{'clause', Line, Identifier, Args, _, _} | _], _], _) ->
