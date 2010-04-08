@@ -66,7 +66,9 @@ seq(Input, Index, [S | Sequence], Acc, Count) ->
         {fail, _, _, _} = Failure ->
             Failure;
         {match, Match, NewInput, NewIndex, _} ->
-            seq(NewInput, NewIndex, Sequence, [Match | Acc], Count + 1)
+            seq(NewInput, NewIndex, Sequence, [Match | Acc], Count + 1);
+        {optional_match, Match, NewInput, NewIndex, _} = O ->
+            seq(NewInput, NewIndex, Sequence, [Match | Acc], Count)
     end.
 
 % one or more
@@ -121,8 +123,8 @@ t_optional(Name, Input, Index, Match, Transform) ->
 p_optional(Match) ->
     fun(Input, Index) ->
         case Match(Input, Index) of
-            {fail, TestCount, _, _} when TestCount == 0 ->
-                {match, [], Input, Index, undefined};
+            {fail, TestCount, _, _} = Failure when TestCount == 0 ->
+                {optional_match, [], Input, Index, undefined};
             Other ->
                 Other
         end

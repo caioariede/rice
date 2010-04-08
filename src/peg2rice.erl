@@ -10,61 +10,134 @@
 % Rules
 
 'root'(Input, Index) ->
-    ?p:t_seq('root', Input, Index, [ ?t('module'), ?p:p_zero_or_more(?t('function')), ?p:p_eof() ],
-    fun([Module, [], _], _) ->
+    ?p:t_seq('root', Input, Index, [
+    
+        ?t('module'), ?p:p_zero_or_more(?t('function')), ?p:p_eof()
+    
+    ],
+
+    fun ([Module, [], _], _) ->
         Module;
+    
     ([Module, Functions, _], _) ->
         [Module | Functions]
+
     end).
  
 'module'(Input, Index) ->
-    ?p:t_seq('module', Input, Index, [ ?p:p_string("module"), ?t('spaces'), ?t('identifier') ],
-    fun([_, _, Name], {{line, Line}, _}) ->
+    ?p:t_seq('module', Input, Index, [
+    
+        ?p:p_string("module"), ?t('spaces'), ?t('identifier')
+        
+    ],
+
+    fun ([_, _, Name], {{line, Line}, _}) ->
         {'attribute', Line, 'module', list_to_atom(Name)}
+
     end).
 
 'function'(Input, Index) ->
-    ?p:t_seq('function', Input, Index, [ ?p:p_one_or_more(?t('clause')), ?t('end') ],
-    fun([Clauses = [{'clause', Line, Identifier, Args, _} | _], _], _) ->
+    ?p:t_seq('function', Input, Index, [
+    
+        ?p:p_one_or_more(?t('clause')), ?t('end')
+    
+    ],
+
+    fun ([Clauses = [{'clause', Line, Identifier, Args, _, _} | _], _], _) ->
         {'function', Line, Identifier, length(Args), Clauses}
+
     end).
 
 'clause'(Input, Index) ->
     ?p:t_seq('clause', Input, Index, [
 
-        ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'), ?p:p_optional(?t('clause_args')),
+        ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'),
+        
+        ?p:p_optional(?p:p_or('clause_args_or_guards', [
 
-            ?t('statements'),
+            ?t('clause_guards'),
 
+            ?p:p_seq([ ?t('clause_args'), ?t('clause_guards') ]),
+
+            ?t('clause_args')
+
+        ])),
+
+        ?t('statements'),
+        
         ?t('dedent')
 
     ],
-    fun([_, _, _, Identifier, Args, Statements, _], {{line, Line}, _}) ->
-        {'clause', Line, list_to_atom(Identifier), Args, Statements}
+
+    fun ([_, _, _, Identifier, {args, Args}, Statements, _], {{line, Line}, _}) ->
+        {'clause', Line, list_to_atom(Identifier), Args, [], Statements};
+
+    ([_, _, _, Identifier, [{args, Args}, {guards, Guards}], Statements, _], {{line, Line}, _}) ->
+        {'clause', Line, list_to_atom(Identifier), Args, Guards, Statements};
+
+    ([_, _, _, Identifier, {guards, Guards}, Statements, _], {{line, Line}, _}) ->
+        {'clause', Line, list_to_atom(Identifier), [], Guards, Statements}
+
     end).
 
 'clause_args'(Input, Index) ->
     ?p:t_seq('clause_args', Input, Index, [
     
-        ?t('spaces'),
+        ?p:p_optional(?t('spaces')),
         
-        ?p:p_string("("), ?p:p_optional(?p:p_seq([
+        ?p:p_string("("),
+        
+        ?p:p_optional(?p:p_seq([
         
             ?t('clause_args_arg'),
             
             ?p:p_zero_or_more(?p:p_seq([ ?t('comma'), ?t('clause_args_arg') ]))
             
-        ])), ?p:p_string(")")
+        ])),
+        
+        ?p:p_string(")")
         
     ],
-    fun([_, _, [Arg, Args], _], _) ->
-        [Arg | util_trim_left(Args)];
-    ([_, _, [], _], _) ->
+
+    fun ([_, _, [Arg, Args], _], _) ->
+        {args, [Arg | util_trim_left(Args)]};
+
+    (_, _) ->
         []
+
     end).
 
 'clause_args_arg'(Input, Index) ->
     ?p:t_or('clause_args_arg', Input, Index, [ ?t('atom'), ?t('number') ],
+    fun(Node, _) ->
+        Node
+    end).
+
+'clause_guards'(Input, Index) ->
+    ?p:t_seq('clause_guards', Input, Index, [
+
+        ?t('spaces'), ?p:p_string("when"), ?t('spaces'),
+
+        ?p:p_optional(?p:p_seq([
+
+            ?t('clause_guards_guard'),
+
+            ?p:p_zero_or_more(?p:p_seq([ ?t('comma'), ?t('clause_guards_guard') ]))
+
+        ]))
+
+    ],
+
+    fun ([_, _, _, [Guard, Guards]], _) ->
+        {guards, [Guard | util_trim_left(Guards)]};
+
+    (_, _) ->
+        []
+
+    end).
+
+'clause_guards_guard'(Input, Index) ->
+    ?p:t_or('clause_guards_guard', Input, Index, [ ?t('atom'), ?t('number') ],
     fun(Node, _) ->
         Node
     end).
@@ -182,7 +255,9 @@
 
 'float'(Input, Index) ->
     ?p:t_regex('float', Input, Index, "[0-9]*\.[0-9]+",
-    fun(Node, {{line, Line}, _}) ->
+    fun([$.|_] = Node, {{line, Line}, _}) ->
+        {float, Line, list_to_float("0" ++ Node)};
+    (Node, {{line, Line}, _}) ->
         {float, Line, list_to_float(Node)}
     end).
 
