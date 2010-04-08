@@ -1,6 +1,6 @@
 -module(peg2rice).
 -compile(nowarn_unused_function).
--export([parse/1]).
+-export([file/1,parse/1]).
 
 -extends(peg2).
 
@@ -11,7 +11,7 @@
 
 'root'(Input, Index) ->
     ?p:t_seq('root', Input, Index, [
-        ?t('module'), ?p:p_zero_or_more(?t('function')), ?p:p_eof()
+        ?t('module'), ?p:p_zero_or_more(?t('function')), ?t('eof')
     ],
 
     fun ([Module, [], _], _) ->
@@ -45,7 +45,9 @@
 'clause'(Input, Index) ->
     ?p:t_seq('clause', Input, Index, [
 
-        ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'),
+        ?p:p_unimportant(?t('samedent')),
+        
+        ?p:p_string("def"), ?t('spaces'), ?t('identifier'),
         
         ?p:p_optional(?p:p_or('clause_args_or_guards', [
 
@@ -102,7 +104,7 @@
     end).
 
 'clause_args_arg'(Input, Index) ->
-    ?p:t_or('clause_args_arg', Input, Index, [ ?t('atom'), ?t('number') ],
+    ?p:t_or('clause_args_arg', Input, Index, [ ?t('atom'), ?t('number'), ?t('string') ],
     fun(Node, _) ->
         Node
     end).
@@ -228,11 +230,17 @@
     end.
 
 'string'(Input, Index) ->
-    ?p:t_seq('spaces', Input, Index, [
-        ?p:p_seq([ ?p:p_string("\""), ?p:p_one_or_more(?p:p_not(?p:p_string("\""))), ?p:p_string("\"") ])
+    ?p:t_seq('string', Input, Index, [
+        
+        ?p:p_string("\""),
+        
+        ?p:p_regex("[^\"]+"),
+        
+        ?p:p_string("\"")
+            
     ],
-    fun([_, String, _], _) ->
-        String
+    fun([_, String, _], {{line, Line}, _}) ->
+        {string, Line, String}
     end).
 
 'atom'(Input, Index) ->
@@ -307,6 +315,18 @@
         'end'
     end).
 
+'eof'(Input, Index) ->
+    ?p:t_seq('eof', Input, Index, [
+
+        ?p:p_optional(?p:p_regex("[\r\n\t\s]+")),
+
+        ?p:p_eof()
+
+    ],
+    fun(_, _) ->
+        'eof'
+    end).
+
 % Utils
 
 util_trim_left([]) ->
@@ -316,6 +336,10 @@ util_trim_left([[_ | H] | Tail]) ->
     [H | util_trim_left(Tail)].
 
 % Parsing functions
+
+file(Filepath) ->
+    {ok, Data} = file:read_file(Filepath),
+    parse(binary_to_list(Data)).
 
 parse(Input) ->
 

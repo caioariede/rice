@@ -5,6 +5,7 @@
     t_seq/5, p_seq/1,
     t_zero_or_more/5, p_zero_or_more/1,
     t_one_or_more/5, p_one_or_more/1,
+    t_unimportant/5, p_unimportant/1,
     t_optional/5, p_optional/1,
     t_string/5, p_string/1,
     t_regex/5, p_regex/1,
@@ -129,6 +130,23 @@ p_optional(Match) ->
                 Other
         end
     end.
+
+% no matter
+
+t_unimportant(Name, Input, Index, Match, Transform) ->
+    p(Name, Index, (p_unimportant(Match))(Input, Index), Transform).
+
+p_unimportant(Match) ->
+    fun(Input, Index) ->
+        case Match(Input, Index) of
+            {match, Result, NewInput, NewIndex, _} ->
+                {optional_match, Result, NewInput, NewIndex, undefined};
+            Other ->
+                Other
+        end
+    end.
+
+% no matter
 
 % string
 
