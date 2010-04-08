@@ -48,13 +48,13 @@
     
         ?t('spaces'),
         
-        ?t('('), ?p:p_seq([
+        ?p:p_string("("), ?p:p_seq([
         
             ?t('clause_args_arg'),
             
             ?p:p_zero_or_more(?p:p_seq([ ?t('comma'), ?t('clause_args_arg') ]))
             
-        ]), ?t(')')
+        ]), ?p:p_string(")")
         
     ],
     fun([_, _, [Arg, Args], _], _) ->
@@ -62,7 +62,7 @@
     end).
 
 'clause_args_arg'(Input, Index) ->
-    ?p:t_or('clause_args_arg', Input, Index, [ ?t('atom') ],
+    ?p:t_or('clause_args_arg', Input, Index, [ ?t('atom'), ?t('number') ],
     fun(Node, _) ->
         Node
     end).
@@ -163,13 +163,31 @@
 
         ?p:p_seq([ ?p:p_string(":"), ?t('identifier') ]),
 
-        ?p:p_seq([ ?t('\''), ?p:p_one_or_more(?p:p_not(?t('\''))), ?t('\'') ])
+        ?p:p_seq([ ?p:p_string("'"), ?p:p_one_or_more(?p:p_not(?p:p_string("'"))), ?p:p_string("'") ])
 
     ],
     fun([":", Name], {{line, Line}, _}) ->
         {'atom', Line, list_to_atom(Name)};
     ([_, Name, _], {{line, Line}, _}) ->
         {'atom', Line, list_to_atom(Name)}
+    end).
+
+'number'(Input, Index) ->
+    ?p:t_or('number', Input, Index, [ ?t('float'), ?t('integer') ],
+    fun(Node, _) ->
+        Node
+    end).
+
+'float'(Input, Index) ->
+    ?p:t_regex('float', Input, Index, "[0-9]*\.[0-9]+",
+    fun(Node, {{line, Line}, _}) ->
+        {float, Line, list_to_float(Node)}
+    end).
+
+'integer'(Input, Index) ->
+    ?p:t_regex('integer', Input, Index, "[0-9]+",
+    fun(Node, {{line, Line}, _}) ->
+        {integer, Line, list_to_integer(Node)}
     end).
 
 'identifier'(Input, Index) ->
@@ -200,24 +218,6 @@
     ?p:t_string('end', Input, Index, "end",
     fun(_, _) ->
         'end'
-    end).
-
-'('(Input, Index) ->
-    ?p:t_string('(', Input, Index, "(",
-    fun(_, _) ->
-        '('
-    end).
-
-')'(Input, Index) ->
-    ?p:t_string(')', Input, Index, ")",
-    fun(_, _) ->
-        ')'
-    end).
-
-'\''(Input, Index) ->
-    ?p:t_string('\'', Input, Index, "'",
-    fun(_, _) ->
-        '\''
     end).
 
 % Utils
