@@ -27,7 +27,7 @@
         ?p:p_string("module"), ?t('spaces'), ?t('identifier')
     ],
 
-    fun ([_, _, Name], {{line, Line}, _}) ->
+    fun ([_, _, {identifier, Name}], {{line, Line}, _}) ->
         {'attribute', Line, 'module', list_to_atom(Name)}
 
     end).
@@ -65,14 +65,17 @@
 
     ],
 
-    fun ([_, _, _, Identifier, {args, Args}, Statements, _], {{line, Line}, _}) ->
+    fun ([_, _, _, {identifier, Identifier}, {args, Args}, Statements, _], {{line, Line}, _}) ->
         {'clause', Line, list_to_atom(Identifier), Args, [], Statements};
 
-    ([_, _, _, Identifier, [{args, Args}, {guards, Guards}], Statements, _], {{line, Line}, _}) ->
+    ([_, _, _, {identifier, Identifier}, [{args, Args}, {guards, Guards}], Statements, _], {{line, Line}, _}) ->
         {'clause', Line, list_to_atom(Identifier), Args, Guards, Statements};
 
-    ([_, _, _, Identifier, {guards, Guards}, Statements, _], {{line, Line}, _}) ->
-        {'clause', Line, list_to_atom(Identifier), [], Guards, Statements}
+    ([_, _, _, {identifier, Identifier}, {guards, Guards}, Statements, _], {{line, Line}, _}) ->
+        {'clause', Line, list_to_atom(Identifier), [], Guards, Statements};
+
+    ([_, _, _, {identifier, Identifier}, [], Statements, _], {{line, Line}, _}) ->
+        {'clause', Line, list_to_atom(Identifier), [], [], Statements}
 
     end).
 
@@ -155,9 +158,16 @@
     end).
 
 'statement'(Input, Index) ->
-    ?p:t_string('statement', Input, Index, "foobar",
-    fun(Node, _) ->
+    ?p:t_or('statement', Input, Index, [
+        ?t('atom'), ?t('number'), ?t('string'), ?t('identifier')
+    ],
+
+    fun({identifier, Name}, {{line, Line}, _}) ->
+        {var, Line, list_to_atom(Name)};
+
+    (Node, _) ->
         Node
+
     end).
 
 'indent'(Input, Index) ->
@@ -256,7 +266,7 @@
 
     ],
 
-    fun([":", Name], {{line, Line}, _}) ->
+    fun([":", {identifier, Name}], {{line, Line}, _}) ->
         {'atom', Line, list_to_atom(Name)};
 
     ([_, Name, _], {{line, Line}, _}) ->
@@ -292,7 +302,7 @@
 'identifier'(Input, Index) ->
     ?p:t_regex('identifier', Input, Index, "[a-zA-Z]+",
     fun(Node, _) ->
-        Node
+        {identifier, Node}
     end).
 
 'spaces'(Input, Index) ->
