@@ -83,6 +83,8 @@
         
         ?p:p_string("("),
         
+        ?p:p_optional(?t('spaces')),
+
         ?p:p_optional(?p:p_seq([
         
             ?t('clause_args_arg'),
@@ -91,11 +93,13 @@
             
         ])),
         
+        ?p:p_optional(?t('spaces')),
+
         ?p:p_string(")")
         
     ],
 
-    fun ([_, _, [Arg, Args], _], _) ->
+    fun ([_, _, _, [Arg, Args], _, _], _) ->
         {args, [Arg | util_trim_left(Args)]};
 
     (_, _) ->
