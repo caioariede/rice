@@ -62,7 +62,7 @@
     end).
 
 'clause_args_arg'(Input, Index) ->
-    ?p:t_or('clause_args_arg', Input, Index, [ ?t('atom') ],
+    ?p:t_string('clause_args_arg', Input, Index, "arg",
     fun(Node, _) ->
         Node
     end).
@@ -158,18 +158,6 @@
             R
     end.
 
-'atom'(Input, Index) ->
-    ?p:t_or('atom', Input, Index, [
-
-        ?p:p_seq([ ?p:p_string(":"), ?t('identifier') ]),
-
-        ?p:p_seq([ ?t('\''), ?p:p_one_or_more(?p:p_not(?t('\''))), ?t('\'') ])
-
-    ],
-    fun(Node, _) ->
-        Node
-    end).
-
 'identifier'(Input, Index) ->
     ?p:t_regex('identifier', Input, Index, "[a-zA-Z]+",
     fun(Node, _) ->
@@ -212,12 +200,6 @@
         ')'
     end).
 
-'\''(Input, Index) ->
-    ?p:t_string('\'', Input, Index, "'",
-    fun(_, _) ->
-        '\''
-    end).
-
 % Utils
 
 util_trim_left([]) ->
@@ -233,7 +215,7 @@ parse(Input) ->
     put('__stack', [0]),
 
     case 'root'(Input, {{line, 1}, {column, 1}}) of
-        {match, AST, _, _, _} ->
+        {match, AST, _, _, Transform} ->
             hd(?p:transform([AST]));
         {fail, _, Index, Expected} ->
             {fail, Index, Expected}
