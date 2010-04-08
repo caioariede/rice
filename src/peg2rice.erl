@@ -32,7 +32,7 @@
 'clause'(Input, Index) ->
     ?p:t_seq('clause', Input, Index, [
 
-        ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'), ?t('clause_args'),
+        ?t('samedent'), ?p:p_string("def"), ?t('spaces'), ?t('identifier'), ?p:p_optional(?t('clause_args')),
 
             ?t('statements'),
 
@@ -48,17 +48,19 @@
     
         ?t('spaces'),
         
-        ?p:p_string("("), ?p:p_seq([
+        ?p:p_string("("), ?p:p_optional(?p:p_seq([
         
             ?t('clause_args_arg'),
             
             ?p:p_zero_or_more(?p:p_seq([ ?t('comma'), ?t('clause_args_arg') ]))
             
-        ]), ?p:p_string(")")
+        ])), ?p:p_string(")")
         
     ],
     fun([_, _, [Arg, Args], _], _) ->
-        [Arg | util_trim_left(Args)]
+        [Arg | util_trim_left(Args)];
+    ([_, _, [], _], _) ->
+        []
     end).
 
 'clause_args_arg'(Input, Index) ->

@@ -5,10 +5,11 @@
     t_seq/5, p_seq/1,
     t_zero_or_more/5, p_zero_or_more/1,
     t_one_or_more/5, p_one_or_more/1,
+    t_optional/5, p_optional/1,
     t_string/5, p_string/1,
     t_regex/5, p_regex/1,
     t_not/5, p_not/1,
-    t_or/5, p_or/1,
+    t_or/5, p_or/2,
     p_eof/0,
     lookahead/1,
     transform/1,
@@ -112,6 +113,21 @@ p_zero_or_more_acc(Match, Acc, Count) ->
         end
     end.
 
+% optional
+
+t_optional(Name, Input, Index, Match, Transform) ->
+    p(Name, Index, (p_optional(Match))(Input, Index), Transform).
+
+p_optional(Match) ->
+    fun(Input, Index) ->
+        case Match(Input, Index) of
+            {fail, TestCount, _, _} when TestCount == 0 ->
+                {match, [], Input, Index, undefined};
+            Other ->
+                Other
+        end
+    end.
+
 % string
 
 t_string(Name, Input, Index, Match, Transform) ->
@@ -169,24 +185,24 @@ p_not(Match) ->
 % or
 
 t_or(Name, Input, Index, Sequence, Transform) ->
-    p(Name, Index, (p_or(Sequence))(Input, Index), Transform).
+    p(Name, Index, (p_or(Name, Sequence))(Input, Index), Transform).
 
-p_or(Sequence) ->
+p_or(Name, Sequence) ->
     fun(Input, Index) ->
-        p_or_acc(Sequence, Input, Index, -1, {fail, 0, Index, nothing_match})
+        p_or_acc(Name, Sequence, Input, Index, -1, {fail, 0, Index, nothing_match})
     end.
 
-p_or_acc([], _, _, _, MoreProx) ->
-    MoreProx;
+p_or_acc(Name, [], _, _, _, {fail, Count, Index, {expected, T, Expected, Given}}) ->
+    {fail, Count, Index, {expected, {Name, T}, Expected, Given}};
 
-p_or_acc([S | Sequence], Input, Index, Count, MoreProx) ->
+p_or_acc(Name, [S | Sequence], Input, Index, Count, MoreProx) ->
     case S(Input, Index) of
         {match, _, _, _, _} = Match ->
             Match;
         {fail, FailCount, _, _} = Failure when FailCount > Count ->
-            p_or_acc(Sequence, Input, Index, FailCount, Failure);
+            p_or_acc(Name, Sequence, Input, Index, FailCount, Failure);
         _ ->
-            p_or_acc(Sequence, Input, Index, Count, MoreProx)
+            p_or_acc(Name, Sequence, Input, Index, Count, MoreProx)
     end.
 
 % eof
