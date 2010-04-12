@@ -13,6 +13,7 @@
     t_or/5, p_or/2,
     p_eof/0,
     lookahead/1,
+    lookahead/2,
     transform/1,
     advance_index/2,
     test/0
@@ -35,17 +36,35 @@ p(_, _, {fail, Count, Index, {expected, Type = {_, _}, Match, Given}}, _) ->
 p(Name, _, {fail, Count, Index, {expected, Type, Match, Given}}, _) ->
     {fail, Count, Index, {expected, {Name, Type}, Match, Given}}.
 
-lookahead({match, {_, Acc, _, _}, _, _, _}) ->
-    lookahead_acc(Acc).
+lookahead({match, {_, _, _, _} = Match, _, _, _}) ->
+    lookahead_match(Match, false).
 
-lookahead_acc([]) ->
-    [[]];
+lookahead({match, {_, _, _, _} = Match, _, _, _}, transform) ->
+    lookahead_match(Match, true).
 
-lookahead_acc([{_, Match, _, _} | []]) ->
-    [Match | []];
+lookahead_match({string, Acc}, _) ->
+    Acc;
 
-lookahead_acc([{_, Match, _, _} | [T]]) ->
-    [Match | lookahead_acc(T)].
+lookahead_match({_, Acc, _, _}, T) when is_tuple(Acc) ->
+    lookahead_match(Acc, T);
+
+lookahead_match({_, Acc, _, _}, false) when is_list(Acc) ->
+    lookahead_acc(Acc, false);
+
+lookahead_match({_, Acc, Index, Transform}, true) when is_list(Acc) ->
+    Transform(lookahead_acc(Acc, true), Index);
+
+lookahead_match(Acc, _) ->
+    Acc.
+
+lookahead_acc([], _) ->
+    [];
+
+lookahead_acc([Match | Tail], T) when is_list(Match) ->
+    [lookahead_acc(Match, T) | lookahead_acc(Tail, T)];
+
+lookahead_acc([Match | Tail], T) ->
+    [lookahead_match(Match, T) | lookahead_acc(Tail, T)].
 
 % sequence
 

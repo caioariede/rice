@@ -45,7 +45,7 @@
 'clause'(Input, Index) ->
     ?p:t_seq('clause', Input, Index, [
 
-        ?p:p_unimportant(?t('samedent')),
+        ?p:p_unimportant(?p:p_one_or_more(?t('samedent'))),
         
         ?p:p_string("def"), ?t('spaces'), ?t('identifier'),
         
@@ -111,15 +111,32 @@
     end).
 
 'clause_args_arg'(Input, Index) ->
-    ?p:t_or('clause_args_arg', Input, Index, [ ?t('atom'), ?t('number'), ?t('string') ],
+    Result = ?p:t_or('clause_args_arg', Input, Index, [ ?t('op'), ?t('atom'), ?t('number'), ?t('string') ],
     fun(Node, _) ->
         Node
-    end).
+    end),
+
+    case element(1, Result) of
+        match ->
+            Arg = ?p:lookahead(Result, transform),
+            case check_for_argument(Arg) of
+                ok ->
+                    Result;
+                NotAllowed ->
+                    {fail, 1, Index, {expected, valid_argument, [], NotAllowed}}
+            end;
+        _ ->
+            Result
+    end.
 
 'clause_guards'(Input, Index) ->
     ?p:t_seq('clause_guards', Input, Index, [
 
-        ?t('spaces'), ?p:p_string("when"), ?t('spaces'),
+        ?p:p_unimportant(?t('spaces')),
+        
+        ?p:p_string("when"),
+        
+        ?t('spaces'),
 
         ?p:p_optional(?p:p_seq([
 
@@ -140,10 +157,23 @@
     end).
 
 'clause_guards_guard'(Input, Index) ->
-    ?p:t_or('clause_guards_guard', Input, Index, [ ?t('atom'), ?t('number'), ?t('string') ],
+    Result = ?p:t_or('clause_guards_guard', Input, Index, [ ?t('op'), ?t('atom'), ?t('number'), ?t('string') ],
     fun(Node, _) ->
         Node
-    end).
+    end),
+
+    case element(1, Result) of
+        match ->
+            Arg = ?p:lookahead(Result, transform),
+            case check_for_bif(Arg) of
+                ok ->
+                    Result;
+                NotAllowed ->
+                    {fail, 1, Index, {expected, valid_argument_or_bif, [], NotAllowed}}
+            end;
+        _ ->
+            Result
+    end.
 
 'statements'(Input, Index) ->
     ?p:t_seq('statements', Input, Index, [ ?t('indent'), ?t('statement'), ?p:p_zero_or_more(?t('statements_sm')) ],
@@ -232,7 +262,6 @@
                 [] -> 0;
                  _ -> hd(Stack)
             end,
-
             case ?p:lookahead(R) of
                 ["\n", Spaces] when length(Spaces) == CurrentStack ->
                     R;
@@ -248,7 +277,7 @@
         
         ?p:p_string("\""),
         
-        ?p:p_regex("[^\"]+"),
+        ?p:p_regex("[^\"]*"),
         
         ?p:p_string("\"")
             
@@ -260,19 +289,37 @@
 'atom'(Input, Index) ->
     ?p:t_or('atom', Input, Index, [
 
-        ?p:p_seq([ ?p:p_string(":"), ?t('identifier') ]),
+        ?p:p_seq([ ?p:p_string("'"), ?p:p_regex("[^'\n]*"), ?p:p_string("'") ]),
 
-        ?p:p_seq([ ?p:p_string("'"), ?p:p_one_or_more(?p:p_not(?p:p_string("'"))), ?p:p_string("'") ])
+        ?p:p_seq([ ?p:p_string("'"), ?t('identifier') ])
 
     ],
 
-    fun([":", {identifier, Name}], {{line, Line}, _}) ->
+    fun(["'", {identifier, Name}], {{line, Line}, _}) ->
         {'atom', Line, list_to_atom(Name)};
 
     ([_, Name, _], {{line, Line}, _}) ->
         {'atom', Line, list_to_atom(Name)}
 
     end).
+
+'op'(Input, Index) ->
+    (?t('op_mult'))(Input, Index).
+
+'op_mult'(Input, Index) ->
+    ('operator'('op_multi', ?t('op_div'), ?p:p_string("*"), '*'))(Input, Index).
+
+'op_div'(Input, Index) ->
+    ('operator'('op_div', ?t('op_mod'), ?p:p_string("/"), '/'))(Input, Index).
+
+'op_mod'(Input, Index) ->
+    ('operator'('op_mod', ?t('op_sum'), ?p:p_string("%"), 'rem'))(Input, Index).
+
+'op_sum'(Input, Index) ->
+    ('operator'('op_sum', ?t('op_sub'), ?p:p_string("+"), '+'))(Input, Index).
+
+'op_sub'(Input, Index) ->
+    ('operator'('op_sub', ?t('number'), ?p:p_string("-"), '-'))(Input, Index).
 
 'number'(Input, Index) ->
     ?p:t_or('number', Input, Index, [ ?t('float'), ?t('integer') ],
@@ -281,7 +328,7 @@
     end).
 
 'float'(Input, Index) ->
-    ?p:t_regex('float', Input, Index, "[0-9]*\.[0-9]+",
+    ?p:t_regex('float', Input, Index, "[0-9]*\\.[0-9]+",
 
     fun([$.|_] = Node, {{line, Line}, _}) ->
         {float, Line, list_to_float("0" ++ Node)};
@@ -341,6 +388,29 @@
         'eof'
     end).
 
+% Parsing shortcuts
+
+'operator'(Name, Left, Op, Transform) when is_function(Transform) ->
+    fun(Input, Index) ->
+        ?p:t_or(Name, Input, Index, [
+            ?p:p_seq([ Left, ?p:p_optional(?t('spaces')), Op, ?p:p_optional(?t('spaces')), ?t('number') ]),
+            Left
+        ], Transform)
+    end;
+
+'operator'(Name, Left, Op, NewOp) ->
+    'operator'(Name, Left, Op, fun([Operand1, _, _, _, Operand2], {{line, Line}, _}) ->
+        {'op', Line, NewOp, Operand1, Operand2};
+    (Operand, _) ->
+        Operand
+    end).
+
+'func_call'({Module, Function}, Line, Args) ->
+    {'call', Line, {'remote', Line, {'atom', Line, Module}, {'atom', Line, Function}, Args}};
+
+'func_call'(Function, Line, Args) ->
+    {'call', Line, {'atom', Line, Function}, Args}.
+
 % Utils
 
 util_trim_left([]) ->
@@ -348,6 +418,24 @@ util_trim_left([]) ->
 
 util_trim_left([[_ | H] | Tail]) ->
     [H | util_trim_left(Tail)].
+
+check_for_bif(Arg) ->
+    case check_for_argument(Arg) of
+        ok ->
+            ok;
+        NotAllowed ->
+            NotAllowed
+    end.
+
+check_for_argument(Arg) when (element(1, Arg) =:= 'integer')
+                          or (element(1, Arg) =:= 'float')
+                          or (element(1, Arg) =:= 'op')
+                          or (element(1, Arg) =:= 'atom')
+                          or (element(1, Arg) =:= 'string') ->
+    ok;
+
+check_for_argument(Arg) ->
+    Arg.
 
 % Parsing functions
 
