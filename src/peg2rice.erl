@@ -123,7 +123,7 @@
                 ok ->
                     Result;
                 NotAllowed ->
-                    {fail, 1, Index, {expected, valid_argument, [], NotAllowed}}
+                    {fail, 1, Index, {expected, valid_argument, NotAllowed}}
             end;
         _ ->
             Result
@@ -169,7 +169,7 @@
                 ok ->
                     Result;
                 NotAllowed ->
-                    {fail, 1, Index, {expected, valid_argument_or_bif, [], NotAllowed}}
+                    {fail, 1, Index, {expected, valid_argument_or_bif, NotAllowed}}
             end;
         _ ->
             Result
@@ -220,7 +220,7 @@
                     [] -> 4;
                     _ -> hd(tl(Stack))
                 end,
-                {fail, 0, Index, {expected, indent, SupposeStack, NewStack}}
+                {fail, 0, Index, {expected, indent, {SupposeStack, NewStack}}}
             end;
         _ ->
             R
@@ -242,7 +242,7 @@
                 put('__stack', NewStack),
                 R;
             true ->
-                {fail, 0, Index, {expected, dedent, PrevStack, NumberOfSpaces}}
+                {fail, 0, Index, {expected, dedent, {PrevStack, NumberOfSpaces}}}
             end;
         _ ->
             R
@@ -266,7 +266,7 @@
                 ["\n", Spaces] when length(Spaces) == CurrentStack ->
                     R;
                 [_, Spaces] ->
-                    {fail, length(Spaces), Index, {expected, samedent, CurrentStack, length(Spaces)}}
+                    {fail, length(Spaces), Index, {expected, samedent, {CurrentStack, length(Spaces)}}}
             end;
         _ ->
             R
@@ -440,8 +440,15 @@ check_for_argument(Arg) ->
 % Parsing functions
 
 file(Filepath) ->
+
     {ok, Data} = file:read_file(Filepath),
-    parse(binary_to_list(Data)).
+
+    case parse(binary_to_list(Data)) of
+        {error, Error, Index} ->
+            error_print(Error, Index, Filepath);
+        Parsed ->
+            Parsed
+    end.
 
 parse(Input) ->
 
@@ -450,6 +457,55 @@ parse(Input) ->
     case 'root'(Input, {{line, 1}, {column, 1}}) of
         {match, AST, _, _, _} ->
             hd(?p:transform([AST]));
-        {fail, _, Index, Expected} ->
-            {fail, Index, Expected}
+        {fail, _, Index, {expected, Expected, _}} ->
+            %io:format("~p~n", [Expected]),
+            {error, error_format(Expected), Index}
     end.
+
+error_format({clause_args, _}) -> arguments;
+error_format({clause_args_arg, _}) -> arguments;
+error_format({statement, _}) -> statement;
+
+error_format({_, Expected}) ->
+    error_format(Expected);
+
+error_format(Expected) ->
+    Expected.
+
+error_print(Type, {{line, L}, {column, C}}, Filepath) ->
+    case file:open(Filepath, ['raw']) of
+        {ok, File} ->
+            Basename = filename:basename(Filepath),
+            io:format("File \"~s\", line ~B column ~B~n", [Basename, L, C]),
+            case get_error_line(File, L, 1, []) of
+                {ok, [PreviousLine, Data]} ->
+                    MixedLine = string:substr(Data, 1, C + 5),
+                    io:format("~n ~B | ~s", [L - 1, string:strip(PreviousLine, right, $\n)]),
+                    io:format("~n ~B | ~s ...~n", [L, string:strip(MixedLine, right, $\n)]),
+                    io:format("     ~s^", [string:chars(32, C - 1)]);
+                {error, Reason} ->
+                    io:format("error reading file: ~s", [Reason]);
+                eof ->
+                    io:format("error reading file: eof")
+            end;
+        {error, Reason} ->
+            io_lib:format("error opening file: ~s", [Reason])
+    end,
+    io:format("~nSyntax Error: invalid syntax (~s)~n", [atom_to_list(Type)]).
+
+get_error_line(File, L, L2, PreviousLine) ->
+    case file:read_line(File) of
+        {ok, Data} when L2 =:= L ->
+            {ok, [PreviousLine, Data]};
+        {ok, Data} when L2 =:= (L - 1) ->
+            get_error_line(File, L, L2 + 1, Data);
+        {ok, _} ->
+            get_error_line(File, L, L2 + 1, []);
+        Error ->
+            Error
+    end.
+
+
+
+
+% eof
