@@ -27,6 +27,7 @@ compile(File, Opts) ->
                 file:write_file(Path, Binary),
                 {ok, Path};
             Error ->
+                io:format("~p~n", [AST]),
                 Error
         end
     catch
@@ -34,7 +35,7 @@ compile(File, Opts) ->
     end.
 
 ast(File) ->
-    rice_peg:file(File).
+    peg2rice:file(File).
     %case rice_peg:file(File) of
     %    {fail, {expected, {_, Expected}, {{line, Line}, {column, Column}}}} ->
     %        throw(io_lib:format("Error: Expected ~s (Line ~B Column ~B)~n", [Expected, Line, Column]));

@@ -11,41 +11,67 @@
 
 'root'(Input, Index) ->
     ?p:t_seq('root', Input, Index, [
-        ?t('module'), ?p:p_zero_or_more(?t('function')), ?t('eof')
+        ?p:p_optional(?t('attributes')), ?p:p_zero_or_more(?t('function')), ?t('eof')
     ],
 
-    fun ([Module, [], _], _) ->
-        Module;
+    fun ([[], Functions, _], _) ->
+        Functions;
 
-    ([Module, Functions, _], _) ->
-        [Module | Functions]
+    ([Attributes, Functions, _], _) ->
+        [Attributes | Functions]
 
     end).
- 
-'module'(Input, Index) ->
-    ?p:t_seq('module', Input, Index, [
-        ?p:p_string("module"), ?t('spaces'), ?t('identifier')
+
+'attributes'(Input, Index) ->
+    ?p:t_or('attributes', Input, Index, [
+        ?t('export')
     ],
 
-    fun ([_, _, {identifier, Name}], {{line, Line}, _}) ->
-        {'attribute', Line, 'module', list_to_atom(Name)}
+    fun (Attributes, _) ->
+        Attributes
+    end).
 
+'export'(Input, Index) ->
+    ?p:t_seq('export', Input, Index, [
+        ?p:p_string("-"), ?p:p_string("export"), ?t('spaces'), ?t('export_functions')
+    ],
+
+    fun ([_, _, _, Functions], {{line, Line}, _}) ->
+       {'attribute', Line, 'export', Functions}
+    end).
+
+'export_functions'(Input, Index) ->
+    ?p:t_seq('export_functions', Input, Index, [
+
+        ?p:p_seq([
+            ?t('identifier'), ?p:p_string("/"), ?t('integer')
+        ]),
+
+        ?p:p_zero_or_more(?p:p_seq([
+            ?t('spaces'), ?t('identifier'), ?p:p_string("/"), ?t('integer')
+        ]))
+    ],
+
+    fun ([Head | [[]]], _) ->
+        util_parse_export_functions([Head]);
+    ([Head | Tail], _) ->
+        util_parse_export_functions([Head | util_trim_left(Tail)])
     end).
 
 'function'(Input, Index) ->
     ?p:t_seq('function', Input, Index, [
-        ?p:p_one_or_more(?t('clause')), ?t('end')
+        ?p:p_one_or_more(?t('clause')), ?p:p_zero_or_more(?t('nl')), ?t('end')
     ],
 
-    fun ([Clauses = [{'clause', Line, Identifier, Args, _, _} | _], _], _) ->
-        {'function', Line, Identifier, length(Args), Clauses}
+    fun ([Clauses = [{'clause', Line, Identifier, Args, _, _} | _], _, _], _) ->
+        {'function', Line, Identifier, length(Args), util_parse_clauses(Clauses)}
 
     end).
 
 'clause'(Input, Index) ->
     ?p:t_seq('clause', Input, Index, [
 
-        ?p:p_unimportant(?p:p_one_or_more(?t('samedent'))),
+        ?p:p_unimportant(?t('samedent')),
         
         ?p:p_string("def"), ?t('spaces'), ?t('identifier'),
         
@@ -201,7 +227,7 @@
     end).
 
 'indent'(Input, Index) ->
-    R = ?p:t_seq('indent', Input, Index, [ ?t('nl'), ?p:p_zero_or_more(?t('spaces')) ],
+    R = ?p:t_seq('indent', Input, Index, [ ?p:p_one_or_more(?t('nl')), ?p:p_optional(?t('spaces')) ],
     fun(_, _) ->
         'indent'
     end),
@@ -216,8 +242,8 @@
                 put('__stack', [NewStack | Stack]),
                 R;
             true ->
-                SupposeStack = case tl(Stack) of
-                    [] -> 4;
+                SupposeStack = case Stack of
+                    [0] -> 4;
                     _ -> hd(tl(Stack))
                 end,
                 {fail, 0, Index, {expected, indent, {SupposeStack, NewStack}}}
@@ -227,17 +253,22 @@
     end.
 
 'dedent'(Input, Index) ->
-    R = ?p:t_seq('dedent', Input, Index, [ ?t('nl'), ?p:p_zero_or_more(?t('spaces')) ],
+    R = ?p:t_seq('dedent', Input, Index, [ ?t('nl'), ?p:p_optional(?t('spaces')) ],
     fun(_, _) ->
         'dedent'
     end),
 
-    [_ | [PrevStack | NewStack]] = get('__stack'),
+    Stack = get('__stack'),
+
+    NewStack = tl(Stack),
+    PrevStack = hd(NewStack),
 
     case element(1, R) of
         match ->
+
             [_, Spaces] = ?p:lookahead(R),
             NumberOfSpaces = length(Spaces),
+
             if NumberOfSpaces == PrevStack ->
                 put('__stack', NewStack),
                 R;
@@ -249,7 +280,7 @@
     end.
 
 'samedent'(Input, Index) ->
-    R = ?p:t_seq('samedent', Input, Index, [ ?t('nl'), ?p:p_zero_or_more(?t('spaces')) ],
+    R = ?p:t_seq('samedent', Input, Index, [ ?p:p_zero_or_more(?t('nl')), ?p:p_optional(?t('spaces')) ],
     fun(_, _) ->
         'samedent'
     end),
@@ -263,7 +294,7 @@
                  _ -> hd(Stack)
             end,
             case ?p:lookahead(R) of
-                ["\n", Spaces] when length(Spaces) == CurrentStack ->
+                [_, Spaces] when length(Spaces) == CurrentStack ->
                     R;
                 [_, Spaces] ->
                     {fail, length(Spaces), Index, {expected, samedent, {CurrentStack, length(Spaces)}}}
@@ -365,7 +396,7 @@
     end).
 
 'nl'(Input, Index) ->
-    ?p:t_regex('nl', Input, Index, "\n",
+    ?p:t_string('nl', Input, Index, "\n",
     fun(_, _) ->
         'nl'
     end).
@@ -419,6 +450,18 @@ util_trim_left([]) ->
 util_trim_left([[_ | H] | Tail]) ->
     [H | util_trim_left(Tail)].
 
+util_parse_clauses([]) ->
+    [];
+
+util_parse_clauses([{'clause', Line, _, Args, Guards, Body} | Tail]) ->
+    [{'clause', Line, Args, Guards, Body} | util_parse_clauses(Tail)].
+
+util_parse_export_functions([]) ->
+    [];
+
+util_parse_export_functions([[{'identifier', Function}, _, {integer, _, Arity}] | Tail]) ->
+    [{list_to_atom(Function), Arity} | util_parse_export_functions(Tail)].
+
 check_for_bif(Arg) ->
     case check_for_argument(Arg) of
         ok ->
@@ -443,11 +486,13 @@ file(Filepath) ->
 
     {ok, Data} = file:read_file(Filepath),
 
+    Module = filename:basename(Filepath, ".ri"),
+
     case parse(binary_to_list(Data)) of
         {error, Error, Index} ->
             error_print(Error, Index, Filepath);
         Parsed ->
-            Parsed
+            [{'attribute', 1, 'module', list_to_atom(Module)} | Parsed]
     end.
 
 parse(Input) ->
@@ -458,7 +503,7 @@ parse(Input) ->
         {match, AST, _, _, _} ->
             hd(?p:transform([AST]));
         {fail, _, Index, {expected, Expected, _}} ->
-            %io:format("~p~n", [Expected]),
+            io:format("~p~n", [Expected]),
             {error, error_format(Expected), Index}
     end.
 
